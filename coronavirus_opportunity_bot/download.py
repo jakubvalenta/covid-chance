@@ -1,6 +1,7 @@
 import logging
 from typing import List
 
+import feedparser
 import requests
 
 logger = logging.getLogger(__name__)
@@ -15,4 +16,5 @@ def download_page(url: str) -> str:
 
 def download_feed(url: str) -> List[str]:
     logger.info('Downloading feed %s', url)
-    return []
+    feed = feedparser.parse(url)
+    return [entry.link for entry in feed.entries]

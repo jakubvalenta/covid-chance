@@ -1,7 +1,8 @@
 from pathlib import Path
 
-from coronavirus_opportunity_bot import __title__
 from setuptools import find_packages, setup
+
+from coronavirus_opportunity_bot import __title__
 
 setup(
     name='coronavirus-opportunity-bot',
@@ -22,5 +23,5 @@ setup(
         'Programming Language :: Python :: 3.8',
     ],
     packages=find_packages(),
-    install_requires=['luigi'],
+    install_requires=['feedparser', 'luigi'],
 )
