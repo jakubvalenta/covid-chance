@@ -5,7 +5,12 @@ _executable_clean = coronavirus-opportunity-bot-clean
 .PHONY: run clean clean-analysis clean-joined setup setup-dev test lint tox reformat help
 
 run:  ## Run the pipeline
-	"./$(_executable)" --verbose $(args) --workers 2
+	"./$(_executable)" \
+		--verbose \
+		--keywords '["opportunity"]' \
+		--pattern '(?P<parsed>opportunity to .+?)([\.?!;]|( \|)|$$)' \
+		--template '...$${parsed} $${url}' \
+		$(args) --workers 2 --local-scheduler --log-level WARNING
 
 clean:  ## Remove all intermediate files except downloaded HTML pages
 	"./$(_executable_clean)" $(args)

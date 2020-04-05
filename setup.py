@@ -28,6 +28,7 @@ setup(
         'feedparser',
         'luigi',
         'lxml',
+        'regex',
         'requests',
     ],
 )

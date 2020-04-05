@@ -2,14 +2,16 @@ import logging
 import os
 import sys
 from pathlib import Path
+from string import Template
 
 import luigi
 
+from coronavirus_opportunity_bot.analyze import filter_lines, parse_lines
 from coronavirus_opportunity_bot.download import (
     download_feed, download_page, get_page_text,
 )
 from coronavirus_opportunity_bot.file_utils import (
-    csv_cache, read_first_line, safe_filename,
+    csv_cache, read_csv_dict, read_first_line, safe_filename, write_csv_dict,
 )
 
 
@@ -47,7 +49,7 @@ class GetPageText(luigi.Task):
 
     def requires(self):
         return DownloadPage(
-            data_path=Path(self.data_path),
+            data_path=self.data_path,
             feed_name=self.feed_name,
             page_url=self.page_url,
         )
@@ -65,6 +67,8 @@ class AnalyzePage(luigi.Task):
     data_path = luigi.Parameter()
     feed_name = luigi.Parameter()
     page_url = luigi.Parameter()
+    keywords = luigi.ListParameter()
+    pattern = luigi.Parameter()
 
     def output(self):
         return luigi.LocalTarget(
@@ -76,18 +80,27 @@ class AnalyzePage(luigi.Task):
 
     def requires(self):
         return GetPageText(
-            data_path=Path(self.data_path),
+            data_path=self.data_path,
             feed_name=self.feed_name,
             page_url=self.page_url,
         )
 
     def run(self):
-        pass
+        with self.input().open('r') as f:
+            lines = filter_lines(f, self.keywords)
+            analysis = [
+                {'line': line, 'parsed': parsed}
+                for line, parsed in parse_lines(lines, self.pattern)
+            ]
+        with self.output().open('w') as f:
+            write_csv_dict(analysis, f, ['line', 'parsed'])
 
 
 class AnalyzeFeed(luigi.Task):
     data_path = luigi.Parameter()
     feed_name = luigi.Parameter()
+    keywords = luigi.ListParameter()
+    pattern = luigi.Parameter()
 
     def output(self):
         return luigi.LocalTarget(
@@ -103,50 +116,39 @@ class AnalyzeFeed(luigi.Task):
 
         return [row[0] for row in download_feed_with_cache()]
 
-    def requires(self):
+    def run(self):
         page_urls = self.download_feed(self.data_path, self.feed_name)
+        joined_analysis = []
         for page_url in page_urls:
-            yield AnalyzePage(
+            page_input = yield AnalyzePage(
                 data_path=self.data_path,
                 feed_name=self.feed_name,
                 page_url=page_url,
+                keywords=self.keywords,
+                pattern=self.pattern,
             )
-
-    def run(self):
-        pass
-
-
-class CreateFeedTweets(luigi.Task):
-    data_path = luigi.Parameter()
-    feed_name = luigi.Parameter()
-    auth_token = luigi.Parameter()
-
-    def output(self):
-        return luigi.LocalTarget(
-            Path(self.data_path) / self.feed_name / 'tweets.csv'
-        )
-
-    def requires(self):
-        return AnalyzeFeed(data_path=self.data_path, feed_name=self.feed_name)
-
-    def run(self):
-        auth_token = self.auth_token or os.environ.get('AUTH_TOKEN')
-        if not auth_token:
-            pass
-            # raise ValueError('Auth token is not defined')
+            with page_input.open('r') as f:
+                for page_analysis in read_csv_dict(f):
+                    joined_analysis.append({'url': page_url, **page_analysis})
+        with self.output().open('w') as f:
+            write_csv_dict(joined_analysis, f, ['url', 'line', 'parsed'])
 
 
 class CreateTweets(luigi.Task):
+    keywords = luigi.ListParameter()
+    pattern = luigi.Parameter()
+    template = luigi.Parameter()
     data_path = luigi.Parameter(default='./data')
     auth_token = luigi.Parameter(default='')
     verbose = luigi.BoolParameter(default=False)
 
     def requires(self):
         for path in Path(self.data_path).glob('*/url.txt'):
-            yield CreateFeedTweets(
+            yield AnalyzeFeed(
                 data_path=self.data_path,
                 feed_name=path.parent.name,
-                auth_token=self.auth_token,
+                keywords=self.keywords,
+                pattern=self.pattern,
             )
 
     def run(self):
@@ -154,6 +156,29 @@ class CreateTweets(luigi.Task):
             logging.basicConfig(
                 stream=sys.stderr, level=logging.INFO, format='%(message)s'
             )
+        auth_token = self.auth_token or os.environ.get('AUTH_TOKEN')
+        if not auth_token:
+            pass
+            # raise ValueError('Auth token is not defined')
+        tweets = {}
+        tweet_template = Template(self.template)
+        for feed_input in self.input():
+            with feed_input.open('r') as f:
+                feed_analysis = list(read_csv_dict(f))
+            for page_analysis in feed_analysis:
+                if (
+                    page_analysis['parsed']
+                    and page_analysis['url'] not in tweets
+                ):
+                    tweets[page_analysis['url']] = tweet_template.substitute(
+                        parsed=page_analysis['parsed'],
+                        url=page_analysis['url'],
+                    )
+        for tweet_text in tweets.values():
+            print(tweet_text)
+
+    def complete(self):
+        return False
 
 
 class CleanAnalysis(luigi.Task):
@@ -168,5 +193,5 @@ class CleanAnalysis(luigi.Task):
             page_urls = AnalyzeFeed.download_feed(self.data_path, feed_name)
             for page_url in page_urls:
                 page_dir = feed_dir / safe_filename(page_url)
-                (page_dir / 'page.txt').unlink(missing_ok=True)
+                # (page_dir / 'page.txt').unlink(missing_ok=True)
                 (page_dir / 'analysis.csv').unlink(missing_ok=True)

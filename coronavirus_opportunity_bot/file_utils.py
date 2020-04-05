@@ -3,7 +3,7 @@ import re
 from functools import wraps
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, Callable
+from typing import IO, Any, Callable, Iterator, List, Sequence
 
 
 def safe_filename(s: str) -> str:
@@ -23,7 +23,7 @@ def csv_cache(path: Path) -> Callable:
             func(*args, **kwargs)
             out = func(*args, **kwargs)
             with path.open('w') as f:
-                writer = csv.writer(f)
+                writer = csv.writer(f, lineterminator='\n')
                 writer.writerows(out)
             return out
 
@@ -34,5 +34,20 @@ def csv_cache(path: Path) -> Callable:
 
 def read_first_line(path: Path) -> str:
     with path.open('r') as f:
-        res = f.readline()
+        res = f.readline().strip()
     return res
+
+
+def read_csv_dict(f: IO) -> Iterator[dict]:
+    return csv.DictReader(f)
+
+
+def write_csv_dict(rows: List[dict], f: IO, fieldnames: Sequence[str]):
+    writer = csv.DictWriter(
+        f,
+        fieldnames=fieldnames,
+        quoting=csv.QUOTE_NONNUMERIC,
+        lineterminator='\n',
+    )
+    writer.writeheader()
+    writer.writerows(rows)
