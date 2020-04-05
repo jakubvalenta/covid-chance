@@ -1,17 +1,14 @@
-import csv
 import logging
 import os
-import re
 import sys
 from pathlib import Path
 
 import luigi
 
 from coronavirus_opportunity_bot.download import download_feed, download_page
-
-
-def url_to_dirname(self) -> str:
-    return re.sub(r'[^A-Za-z0-9_\-\.]', '_', self.url)
+from coronavirus_opportunity_bot.file_utils import (
+    csv_cache, read_first_line, safe_filename,
+)
 
 
 class DownloadPage(luigi.Task):
@@ -23,12 +20,14 @@ class DownloadPage(luigi.Task):
         return luigi.LocalTarget(
             Path(self.data_path)
             / self.name
-            / url_to_dirname(self.page_url)
+            / safe_filename(self.page_url)
             / 'page.html'
         )
 
     def run(self):
-        download_page(self.url, self.output().path)
+        with self.output().open('w') as f:
+            html = download_page(self.page_url)
+            f.write(html)
 
 
 class AnalyzePage(luigi.Task):
@@ -40,7 +39,7 @@ class AnalyzePage(luigi.Task):
         return luigi.LocalTarget(
             Path(self.data_path)
             / self.name
-            / url_to_dirname(self.page_url)
+            / safe_filename(self.page_url)
             / 'analysis.csv'
         )
 
@@ -50,6 +49,10 @@ class AnalyzePage(luigi.Task):
             name=self.name,
             page_url=self.page_url,
         )
+
+    def run(self):
+        with self.output().open('w') as f:
+            f.write('')
 
 
 class AnalyzeFeed(luigi.Task):
@@ -61,20 +64,17 @@ class AnalyzeFeed(luigi.Task):
             Path(self.data_path) / self.name / 'analysis.csv'
         )
 
+    @staticmethod
+    def download_feed(data_path: str, name: str):
+        @csv_cache(Path(data_path) / name / 'feed.csv')
+        def download_feed_with_cache():
+            feed_url = read_first_line(Path(data_path) / name / 'url.txt')
+            return [(page_url,) for page_url in download_feed(feed_url)]
+
+        return [row[0] for row in download_feed_with_cache()]
+
     def requires(self):
-        feed_path = Path(self.data_path) / self.name / 'feed.csv'
-        if feed_path.exists():
-            with feed_path.open('r') as f:
-                reader = csv.reader(f)
-                page_urls = list(reader)
-        else:
-            feed_url_path = Path(self.data_path) / self.name / 'url.txt'
-            with feed_url_path.open('r') as f:
-                feed_url = f.readline()
-            page_urls = download_feed(feed_url)
-            with feed_path.open('w') as f:
-                writer = csv.writer(f)
-                writer.writerows(page_urls)
+        page_urls = self.download_feed(self.data_path, self.name)
         for page_url in page_urls:
             yield AnalyzePage(
                 data_path=self.data_path, name=self.name, page_url=page_url
@@ -82,7 +82,7 @@ class AnalyzeFeed(luigi.Task):
 
     def run(self):
         with self.output().open('w') as f:
-            print('', file=f)
+            f.write('')
 
 
 class CreateFeedTweets(luigi.Task):
@@ -104,7 +104,7 @@ class CreateFeedTweets(luigi.Task):
             pass
             # raise ValueError('Auth token is not defined')
         with self.output().open('w') as f:
-            print('', file=f)
+            f.write('')
 
 
 class CreateTweets(luigi.Task):
@@ -131,4 +131,14 @@ class CleanAnalysis(luigi.Task):
     data_path = luigi.Parameter(default='./data')
 
     def run(self):
-        pass
+        for url_path in Path(self.data_path).glob('*/url.txt'):
+            name = url_path.parent.name
+            page_urls = AnalyzeFeed.download_feed(self.data_path, name)
+            for page_url in page_urls:
+                pass
+            (Path(self.data_path) / name / 'analysis.csv').unlink(
+                missing_ok=True
+            )
+            (Path(self.data_path) / name / 'tweets.csv').unlink(
+                missing_ok=True
+            )
