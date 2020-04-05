@@ -23,5 +23,11 @@ setup(
         'Programming Language :: Python :: 3.8',
     ],
     packages=find_packages(),
-    install_requires=['feedparser', 'luigi'],
+    install_requires=[
+        'beautifulsoup4',
+        'feedparser',
+        'luigi',
+        'lxml',
+        'requests',
+    ],
 )

@@ -10,5 +10,8 @@ isort = "*"
 mypy = "*"
 
 [packages]
+beautifulsoup4 = "*"
 feedparser = "*"
+lxml = "*"
 luigi = "*"
+requests = "*"
