@@ -5,13 +5,13 @@ _executable_clean = coronavirus-opportunity-bot-clean
 .PHONY: download create-tweets post-tweets clean-tweets setup setup-dev test lint tox reformat help
 
 download:  ## Download pages from feeds
-	"./$(_executable)" \
-		Download \
+	"./$(_executable)" luigi --module "$(_python_pkg).download_feeds" \
+		DownloadFeeds \
 		--verbose \
-		--workers 2 --local-scheduler --log-level WARNING
+		--workers 2 --local-scheduler --log-level INFO
 
 create-tweets:  ## Create tweets from downloaded pages
-	"./$(_executable)" \
+	"./$(_executable)" luigi --module "$(_python_pkg).create_tweets" \
 		CreateTweets \
 		--verbose \
 		--keywords '["opportunity"]' \
@@ -20,7 +20,7 @@ create-tweets:  ## Create tweets from downloaded pages
 		--workers 2 --local-scheduler --log-level WARNING
 
 post-tweets:  ## Create tweets from downloaded pages and post them
-	"./$(_executable)" \
+	"./$(_executable)" luigi --module "$(_python_pkg).post_tweets" \
 		PostTweets \
 		--verbose \
 		--keywords '["opportunity"]' \
