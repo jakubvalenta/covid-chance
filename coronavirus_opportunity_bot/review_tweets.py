@@ -2,6 +2,8 @@ import argparse
 import logging
 import sys
 from pathlib import Path
+from textwrap import fill, indent
+from typing import Dict
 
 from coronavirus_opportunity_bot.create_tweets import CreateTweets
 from coronavirus_opportunity_bot.tweet_list import TweetList
@@ -14,6 +16,24 @@ REVIEW_STATUS_REJECTED = 'rejected'
 
 def get_reviewed_tweets_path(data_path: str) -> Path:
     return Path(data_path) / f'reviewed_tweets.csv'
+
+
+def print_tweet(
+    tweet: Dict[str, str],
+    status: str,
+    status_width: int = 10,
+    separator_width: int = 20,
+    line_width: int = 80,
+):
+    print('-' * separator_width)
+    print(status.upper().ljust(status_width) + tweet['tweet'])
+    print()
+    print(
+        indent(
+            fill(tweet['line'], line_width - status_width), ' ' * status_width
+        )
+    )
+    print()
 
 
 def main():
@@ -36,12 +56,9 @@ def main():
             continue
         reviewed_tweet = reviewed_tweets.find(tweet)
         if reviewed_tweet:
-            print('----------')
-            print(reviewed_tweet['status'].upper(), tweet['tweet'])
+            print_tweet(reviewed_tweet, reviewed_tweet['status'])
             continue
-        print('----------')
-        print('REVIEW', tweet['tweet'])
-        print('      ', tweet['line'])
+        print_tweet(tweet, 'review')
         inp = None
         while inp is None or (inp not in ('y', 'n', 'e', 'q', 's', '')):
             inp = input(
