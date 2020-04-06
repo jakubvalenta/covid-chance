@@ -2,7 +2,7 @@ _python_pkg = coronavirus_opportunity_bot
 _executable = coronavirus-opportunity-bot
 _executable_clean = coronavirus-opportunity-bot-clean
 
-.PHONY: download create-tweets post-tweets clean clean-analysis clean-joined setup setup-dev test lint tox reformat help
+.PHONY: download create-tweets post-tweets clean-tweets setup setup-dev test lint tox reformat help
 
 download:  ## Download pages from feeds
 	"./$(_executable)" \
@@ -16,7 +16,7 @@ create-tweets:  ## Create tweets from downloaded pages
 		--verbose \
 		--keywords '["opportunity"]' \
 		--pattern 'opportunity to (?P<parsed>.+?)([\.?!;]|( \|)|$$)' \
-		--template '$${parsed} #Covid_19 $${url}' \
+		--template '$${parsed} #Covid_19 @$${handle} $${url}' \
 		--workers 2 --local-scheduler --log-level WARNING
 
 post-tweets:  ## Create tweets from downloaded pages and post them
@@ -25,11 +25,14 @@ post-tweets:  ## Create tweets from downloaded pages and post them
 		--verbose \
 		--keywords '["opportunity"]' \
 		--pattern 'opportunity to (?P<parsed>.+?)([\.?!;]|( \|)|$$)' \
-		--template '$${parsed} #Covid_19 $${url}' \
+		--template '$${parsed} #Covid_19 @$${handle} $${url}' \
 		--workers 2 --local-scheduler --log-level WARNING
 
-clean:  ## Remove all intermediate files except downloaded HTML pages
-	"./$(_executable_clean)" $(args)
+clean-tweets:  ## Remove created tweets
+	"./$(_executable)" \
+		CleanTweets \
+		--verbose \
+		--workers 2 --local-scheduler --log-level WARNING
 
 setup:  ## Create Pipenv virtual environment and install dependencies.
 	pipenv --three --site-packages

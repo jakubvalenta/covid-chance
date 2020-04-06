@@ -3,7 +3,7 @@ import re
 from functools import wraps
 from hashlib import sha256
 from pathlib import Path
-from typing import IO, Any, Callable, Iterator, List, Sequence
+from typing import IO, Any, Callable, Iterator, List
 
 
 def safe_filename(s: str) -> str:

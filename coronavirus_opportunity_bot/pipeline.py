@@ -1,10 +1,11 @@
 import datetime
+import json
 import logging
 import os
 import sys
 from pathlib import Path
 from string import Template
-from typing import Dict, Iterator, List, Set, Tuple
+from typing import Dict, Iterator, List, Set
 
 import luigi
 
@@ -167,8 +168,8 @@ class DownloadFeedPages(luigi.Task):
         )
 
     @staticmethod
-    def get_feed_url_path(data_path: str, feed_name: str) -> Path:
-        return Path(data_path) / feed_name / 'feed_url.txt'
+    def get_feed_info_path(data_path: str, feed_name: str) -> Path:
+        return Path(data_path) / feed_name / 'feed_info.json'
 
     def output(self):
         return luigi.LocalTarget(
@@ -183,10 +184,11 @@ class DownloadFeedPages(luigi.Task):
     ) -> List[str]:
         @csv_cache(cls.get_feed_path(data_path, feed_name, date_second))
         def download_feed_with_cache():
-            feed_url = read_first_line(
-                cls.get_feed_url_path(data_path, feed_name)
-            )
-            return [(page_url,) for page_url in download_feed(feed_url)]
+            feed_info_path = cls.get_feed_info_path(data_path, feed_name)
+            with feed_info_path.open('r') as f:
+                feed_info = json.load(f)
+            page_urls = download_feed(feed_info['url'])
+            return [(page_url,) for page_url in page_urls]
 
         return [row[0] for row in download_feed_with_cache()]
 
@@ -218,8 +220,8 @@ class Download(luigi.Task):
         )
 
     @staticmethod
-    def get_feed_url_paths(data_path: str) -> Iterator[Path]:
-        return Path(data_path).glob('*/feed_url.txt')
+    def get_feed_info_paths(data_path: str) -> Iterator[Path]:
+        return Path(data_path).glob('*/feed_info.json')
 
     def output(self):
         return luigi.LocalTarget(
@@ -227,7 +229,7 @@ class Download(luigi.Task):
         )
 
     def requires(self):
-        for path in self.get_feed_url_paths(self.data_path):
+        for path in self.get_feed_info_paths(self.data_path):
             yield DownloadFeedPages(
                 data_path=self.data_path,
                 feed_name=path.parent.name,
@@ -246,6 +248,7 @@ class Download(luigi.Task):
 class CreatePageTweets(luigi.Task):
     data_path = luigi.Parameter()
     feed_name = luigi.Parameter()
+    feed_twitter_handle = luigi.Parameter()
     page_url = luigi.Parameter()
     keywords = luigi.ListParameter()
     pattern = luigi.Parameter()
@@ -287,7 +290,9 @@ class CreatePageTweets(luigi.Task):
                     'line': line,
                     'parsed': parsed,
                     'tweet': tweet_tmpl.substitute(
-                        parsed=parsed, url=self.page_url,
+                        parsed=parsed,
+                        url=self.page_url,
+                        handle=self.feed_twitter_handle,
                     )
                     if parsed
                     else '',
@@ -301,6 +306,7 @@ class CreatePageTweets(luigi.Task):
 class CreateFeedTweets(luigi.Task):
     data_path = luigi.Parameter()
     feed_name = luigi.Parameter()
+    feed_twitter_handle = luigi.Parameter()
     date_second = luigi.DateSecondParameter()
     keywords = luigi.ListParameter()
     pattern = luigi.Parameter()
@@ -336,6 +342,7 @@ class CreateFeedTweets(luigi.Task):
             yield CreatePageTweets(
                 data_path=self.data_path,
                 feed_name=self.feed_name,
+                feed_twitter_handle=self.feed_twitter_handle,
                 page_url=page_url,
                 keywords=self.keywords,
                 pattern=self.pattern,
@@ -369,10 +376,15 @@ class CreateTweets(luigi.Task):
         )
 
     def requires(self):
-        for path in Download.get_feed_url_paths(self.data_path):
+        for feed_info_path in Download.get_feed_info_paths(self.data_path):
+            with feed_info_path.open('r') as f:
+                feed_info = json.load(f)
+            feed_name = feed_info_path.parent.name
+            feed_twitter_handle = feed_info['twitter_handle']
             yield CreateFeedTweets(
                 data_path=self.data_path,
-                feed_name=path.parent.name,
+                feed_name=feed_name,
+                feed_twitter_handle=feed_twitter_handle,
                 date_second=self.date_second,
                 keywords=self.keywords,
                 pattern=self.pattern,
@@ -458,19 +470,25 @@ class PostTweets(luigi.Task):
         return False
 
 
-class CleanAnalysis(luigi.Task):
+class CleanTweets(luigi.Task):
     data_path = luigi.Parameter(default='./data')
+    date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
+    verbose = luigi.BoolParameter(default=False, significant=False)
 
     def run(self):
-        for url_path in CreateTweets.get_feed_url_paths(self.data_path):
-            feed_name = url_path.parent.name
-            CreateFeedTweets.get_output_path(
-                self.data_path, feed_name, date_second
-            ).unlink(missing_ok=True)
-            page_urls = CreateFeedTweets.download_feed(
-                self.data_path, feed_name, date_second
+        if self.verbose:
+            logging.basicConfig(
+                stream=sys.stderr, level=logging.INFO, format='%(message)s'
+            )
+        for feed_info_path in Download.get_feed_info_paths(self.data_path):
+            feed_name = feed_info_path.parent.name
+            page_urls = CreateFeedTweets.get_page_urls(
+                self.data_path, feed_name
             )
             for page_url in page_urls:
                 CreatePageTweets.get_output_path(
                     self.data_path, feed_name, page_url
                 ).unlink(missing_ok=True)
+
+    def complete(self):
+        return False
