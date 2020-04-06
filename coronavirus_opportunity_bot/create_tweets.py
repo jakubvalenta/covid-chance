@@ -4,7 +4,7 @@ import logging
 import sys
 from pathlib import Path
 from string import Template
-from typing import IO, Dict, Iterable, Iterator, List, Sequence, Tuple
+from typing import IO, Iterable, Iterator, Sequence, Tuple
 
 import luigi
 import regex
@@ -102,15 +102,7 @@ class CreateFeedTweets(luigi.Task):
     pattern = luigi.Parameter()
     template = luigi.Parameter()
 
-    @staticmethod
-    def get_output_path(
-        data_path: str, feed_name: str, date_second: datetime.date
-    ) -> Path:
-        return (
-            Path(data_path)
-            / feed_name
-            / f'feed_tweets-{date_second.isoformat()}.csv'
-        )
+    _complete = False
 
     @staticmethod
     def get_page_urls(data_path: str, feed_name: str) -> Iterator[str]:
@@ -118,13 +110,6 @@ class CreateFeedTweets(luigi.Task):
             '*/page_url.txt'
         ):
             yield read_first_line(page_url_path)
-
-    def output(self):
-        return luigi.LocalTarget(
-            self.get_output_path(
-                self.data_path, self.feed_name, self.date_second
-            )
-        )
 
     def requires(self):
         page_urls = self.get_page_urls(self.data_path, self.feed_name)
@@ -140,12 +125,10 @@ class CreateFeedTweets(luigi.Task):
             )
 
     def run(self):
-        feed_tweets: List[Dict[str, str]] = []
-        for page_input in self.input():
-            with page_input.open('r') as f:
-                feed_tweets.extend(read_csv_dict(f))
-        with self.output().open('w') as f:
-            write_csv_dict(feed_tweets, f)
+        self._complete = True
+
+    def complete(self):
+        return self._complete
 
 
 class CreateTweets(luigi.Task):
@@ -156,14 +139,7 @@ class CreateTweets(luigi.Task):
     template = luigi.Parameter()
     verbose = luigi.BoolParameter(default=False, significant=False)
 
-    @staticmethod
-    def get_output_path(data_path: str, date_second: datetime.date) -> Path:
-        return Path(data_path) / f'all_tweets-{date_second.isoformat()}.csv'
-
-    def output(self):
-        return luigi.LocalTarget(
-            self.get_output_path(self.data_path, self.date_second)
-        )
+    _complete = False
 
     def requires(self):
         for feed_info_path in DownloadFeeds.get_feed_info_paths(
@@ -183,42 +159,29 @@ class CreateTweets(luigi.Task):
                 template=self.template,
             )
 
-    def run(self):
-        if self.verbose:
-            logging.basicConfig(
-                stream=sys.stderr, level=logging.INFO, format='%(message)s'
-            )
-        all_tweets: List[Dict[str, str]] = []
-        for feed_input in self.input():
-            with feed_input.open('r') as f:
-                for page_tweet in read_csv_dict(f):
-                    if page_tweet:
-                        all_tweets.append(page_tweet)
-        with self.output().open('w') as f:
-            write_csv_dict(all_tweets, f)
-
-
-class CleanTweets(luigi.Task):
-    data_path = luigi.Parameter(default='./data')
-    date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
-    verbose = luigi.BoolParameter(default=False, significant=False)
-
-    def run(self):
-        if self.verbose:
-            logging.basicConfig(
-                stream=sys.stderr, level=logging.INFO, format='%(message)s'
-            )
-        for feed_info_path in DownloadFeeds.get_feed_info_paths(
-            self.data_path
-        ):
+    @staticmethod
+    def read_all_page_urls(data_path: str) -> Iterator[Tuple[str, str]]:
+        for feed_info_path in DownloadFeeds.get_feed_info_paths(data_path):
             feed_name = feed_info_path.parent.name
-            page_urls = CreateFeedTweets.get_page_urls(
-                self.data_path, feed_name
-            )
+            page_urls = CreateFeedTweets.get_page_urls(data_path, feed_name)
             for page_url in page_urls:
-                CreatePageTweets.get_output_path(
-                    self.data_path, feed_name, page_url
-                ).unlink(missing_ok=True)
+                yield feed_name, page_url
+
+    @classmethod
+    def read_all_tweets(cls, data_path: str):
+        for feed_name, page_url in cls.read_all_page_urls(data_path):
+            page_tweets_path = CreatePageTweets.get_output_path(
+                data_path, feed_name, page_url
+            )
+            with page_tweets_path.open('r') as f:
+                yield from read_csv_dict(f)
+
+    def run(self):
+        if self.verbose:
+            logging.basicConfig(
+                stream=sys.stderr, level=logging.INFO, format='%(message)s'
+            )
+        self._complete = True
 
     def complete(self):
-        return False
+        return self._complete

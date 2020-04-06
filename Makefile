@@ -19,20 +19,14 @@ create-tweets:  ## Create tweets from downloaded pages
 		--template '$${parsed} #Covid_19 @$${handle} $${url}' \
 		--workers 2 --local-scheduler --log-level WARNING
 
-post-tweets:  ## Create tweets from downloaded pages and post them
-	"./$(_executable)" luigi --module "$(_python_pkg).post_tweets" \
-		PostTweets \
-		--verbose \
-		--keywords '["opportunity"]' \
-		--pattern 'opportunity to (?P<parsed>.+?)([\.?!;]|( \|)|$$)' \
-		--template '$${parsed} #Covid_19 @$${handle} $${url}' \
-		--workers 2 --local-scheduler --log-level WARNING
+review-tweets:  ## Review created tweets
+	"./$(_executable)" python -m "$(_python_pkg).review_tweets" --verbose
+
+post-tweets:  ## Post reviewed tweets
+	"./$(_executable)" python -m "$(_python_pkg).post_tweets" --verbose
 
 clean-tweets:  ## Remove created tweets
-	"./$(_executable)" \
-		CleanTweets \
-		--verbose \
-		--workers 2 --local-scheduler --log-level WARNING
+	"./$(_executable)" python -m "$(_python_pkg).clean_tweets" --verbose
 
 setup:  ## Create Pipenv virtual environment and install dependencies.
 	pipenv --three --site-packages
