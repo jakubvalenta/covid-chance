@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List
 
+import twitter
+
 from coronavirus_opportunity_bot.review_tweets import (
     REVIEW_STATUS_APPROVED, get_reviewed_tweets_path,
 )
@@ -20,6 +22,12 @@ def get_posted_tweets_path(data_path: str) -> Path:
 
 def post_tweet(tweet: Dict[str, str]):
     logger.warning('POSTING NOW    %s', tweet['tweet'])
+    api = twitter.Api(
+        consumer_key='[consumer key]',
+        consumer_secret='[consumer secret]',
+        paccess_token_key='[access token]',
+        access_token_secret='[access token secret]',
+    )
 
 
 def main():

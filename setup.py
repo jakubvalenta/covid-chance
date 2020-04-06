@@ -30,5 +30,6 @@ setup(
         'lxml',
         'regex',
         'requests',
+        'twitter',
     ],
 )
