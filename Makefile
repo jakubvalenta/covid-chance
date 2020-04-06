@@ -8,8 +8,8 @@ run:  ## Run the pipeline
 	"./$(_executable)" \
 		--verbose \
 		--keywords '["opportunity"]' \
-		--pattern '(?P<parsed>opportunity to .+?)([\.?!;]|( \|)|$$)' \
-		--template '...$${parsed} $${url}' \
+		--pattern 'opportunity to (?P<parsed>.+?)([\.?!;]|( \|)|$$)' \
+		--template '$${parsed} #Covid_19 $${url}' \
 		$(args) --workers 2 --local-scheduler --log-level WARNING
 
 clean:  ## Remove all intermediate files except downloaded HTML pages
