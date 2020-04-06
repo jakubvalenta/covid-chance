@@ -20,14 +20,22 @@ def get_posted_tweets_path(data_path: str) -> Path:
     return Path(data_path) / f'posted_tweets.csv'
 
 
-def post_tweet(tweet: Dict[str, str]):
+def post_tweet(tweet: Dict[str, str], dry_run: bool = True):
     logger.warning('POSTING NOW    %s', tweet['tweet'])
+    if dry_run:
+        logger.warning('This is just a dry run, not calling Twitter API')
+        return False
     api = twitter.Api(
         consumer_key='[consumer key]',
         consumer_secret='[consumer secret]',
         paccess_token_key='[access token]',
         access_token_secret='[access token secret]',
     )
+    status = api.PostUpdate(status=tweet['text'])
+    logger.warning(
+        'Posted tweet "%s" as user %s', status.test, status.user.name
+    )
+    return True
 
 
 def main():

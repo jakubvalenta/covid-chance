@@ -41,7 +41,6 @@ def parse_lines(
 class CreatePageTweets(luigi.Task):
     data_path = luigi.Parameter()
     feed_name = luigi.Parameter()
-    feed_twitter_handle = luigi.Parameter()
     page_url = luigi.Parameter()
     match_line = luigi.ListParameter()
     parse_pattern = luigi.Parameter()
@@ -78,9 +77,7 @@ class CreatePageTweets(luigi.Task):
                     'line': line,
                     'parsed': parsed,
                     'tweet': tweet_template_obj.substitute(
-                        parsed=parsed,
-                        url=self.page_url,
-                        handle=self.feed_twitter_handle,
+                        parsed=parsed, url=self.page_url
                     )
                     if parsed
                     else '',
@@ -122,24 +119,15 @@ class CreateTweets(luigi.Task):
                 yield from read_csv_dict(f)
 
     def requires(self):
-        for feed_info_path in DownloadFeeds.get_feed_info_paths(
-            self.data_path
-        ):
-            with feed_info_path.open('r') as f:
-                feed_info = json.load(f)
-            feed_name = feed_info_path.parent.name
-            feed_twitter_handle = feed_info['twitter_handle']
-            page_urls = self.get_page_urls(self.data_path, feed_name)
-            for page_url in page_urls:
-                yield CreatePageTweets(
-                    data_path=self.data_path,
-                    feed_name=feed_name,
-                    feed_twitter_handle=feed_twitter_handle,
-                    page_url=page_url,
-                    match_line=self.match_line,
-                    parse_pattern=self.parse_pattern,
-                    tweet_template=self.tweet_template,
-                )
+        for feed_name, page_url in self.read_all_page_urls(self.data_path):
+            yield CreatePageTweets(
+                data_path=self.data_path,
+                feed_name=feed_name,
+                page_url=page_url,
+                match_line=self.match_line,
+                parse_pattern=self.parse_pattern,
+                tweet_template=self.tweet_template,
+            )
 
     def run(self):
         pass
