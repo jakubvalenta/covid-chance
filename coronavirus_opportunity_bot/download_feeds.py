@@ -1,3 +1,4 @@
+import argparse
 import datetime
 import json
 import logging
@@ -264,9 +265,8 @@ class DownloadFeedPages(luigi.Task):
 
 
 class DownloadFeeds(luigi.Task):
-    data_path = luigi.Parameter(default='./data')
+    data_path = luigi.Parameter()
     date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
-    verbose = luigi.BoolParameter(default=False, significant=False)
 
     @staticmethod
     def get_output_path(data_path: str, date_second: datetime.date) -> Path:
@@ -292,9 +292,30 @@ class DownloadFeeds(luigi.Task):
             )
 
     def run(self):
-        if self.verbose:
-            logging.basicConfig(
-                stream=sys.stderr, level=logging.INFO, format='%(message)s'
-            )
         with self.output().open('w') as f:
             f.write('')
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-d', '--data-path', help='Data path', default='./data'
+    )
+    parser.add_argument(
+        '-v', '--verbose', action='store_true', help='Enable debugging output'
+    )
+    args = parser.parse_args()
+    if args.verbose:
+        logging.basicConfig(
+            stream=sys.stderr, level=logging.INFO, format='%(message)s'
+        )
+    luigi.build(
+        [DownloadFeeds(data_path=args.data_path)],
+        workers=2,
+        local_scheduler=True,
+        log_level='INFO',
+    )
+
+
+if __name__ == '__main__':
+    main()

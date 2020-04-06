@@ -5,31 +5,36 @@ _executable_clean = coronavirus-opportunity-bot-clean
 .PHONY: download create-tweets post-tweets clean-tweets setup setup-dev test lint tox reformat help
 
 download:  ## Download pages from feeds
-	"./$(_executable)" luigi --module "$(_python_pkg).download_feeds" \
-		DownloadFeeds \
+	"./$(_executable)" python -m "$(_python_pkg).download_feeds" \
 		--verbose \
-		--workers 2 --local-scheduler --log-level INFO
+		--data-path "$(HOME)/.cache/coronavirus-opportunity-bot/data"
 
 create-tweets:  ## Create tweets from downloaded pages
-	"./$(_executable)" luigi --module "$(_python_pkg).create_tweets" \
-		CreateTweets \
+	"./$(_executable)" python -m "$(_python_pkg).create_tweets" \
 		--verbose \
-		--keywords '["opportunity"]' \
-		--pattern 'opportunity to (?P<parsed>.+?)([\.?!;,]|( \|)|$$)' \
-		--template '$${parsed} #Covid_19 @$${handle} $${url}' \
-		--workers 2 --local-scheduler --log-level INFO
+		--data-path "$(HOME)/.cache/coronavirus-opportunity-bot/data" \
+		--config "$(HOME)/.config/coronavirus-opportunity-bot/config.json"
 
 review-tweets:  ## Review created tweets
-	"./$(_executable)" python -m "$(_python_pkg).review_tweets" --verbose
+	"./$(_executable)" python -m "$(_python_pkg).review_tweets" \
+		--verbose \
+		--data-path "$(HOME)/.cache/coronavirus-opportunity-bot/data" \
 
 post-tweets:  ## Post reviewed tweets
-	"./$(_executable)" python -m "$(_python_pkg).post_tweets" --verbose
+	"./$(_executable)" python -m "$(_python_pkg).post_tweets" \
+		--verbose \
+		--data-path "$(HOME)/.cache/coronavirus-opportunity-bot/data" \
 
 post-single-tweet:  ## Post a single random tweet
-	"./$(_executable)" python -m "$(_python_pkg).post_tweets" --single --verbose
+	"./$(_executable)" python -m "$(_python_pkg).post_tweets" \
+		--verbose \
+		--single \
+		--data-path "$(HOME)/.cache/coronavirus-opportunity-bot/data" \
 
 clean-tweets:  ## Remove created tweets
-	"./$(_executable)" python -m "$(_python_pkg).clean_tweets" --verbose
+	"./$(_executable)" python -m "$(_python_pkg).clean_tweets" \
+		--verbose \
+		--data-path "$(HOME)/.cache/coronavirus-opportunity-bot/data" \
 
 setup:  ## Create Pipenv virtual environment and install dependencies.
 	pipenv --three --site-packages
