@@ -4,4 +4,4 @@ project_dir=$(dirname "$(readlink -f "$0")")
 
 PIPENV_PIPFILE="$project_dir/Pipfile" \
 PYTHONPATH="$project_dir" \
-pipenv run luigi --module coronavirus_opportunity_bot.pipeline CreateTweets "$@" --local-scheduler
+pipenv run luigi --module coronavirus_opportunity_bot.pipeline "$@" --local-scheduler

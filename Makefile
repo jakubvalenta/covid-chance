@@ -2,15 +2,31 @@ _python_pkg = coronavirus_opportunity_bot
 _executable = coronavirus-opportunity-bot
 _executable_clean = coronavirus-opportunity-bot-clean
 
-.PHONY: run clean clean-analysis clean-joined setup setup-dev test lint tox reformat help
+.PHONY: download create-tweets post-tweets clean clean-analysis clean-joined setup setup-dev test lint tox reformat help
 
-run:  ## Run the pipeline
+download:  ## Download pages from feeds
 	"./$(_executable)" \
+		Download \
+		--verbose \
+		--workers 2 --local-scheduler --log-level WARNING
+
+create-tweets:  ## Create tweets from downloaded pages
+	"./$(_executable)" \
+		CreateTweets \
 		--verbose \
 		--keywords '["opportunity"]' \
 		--pattern 'opportunity to (?P<parsed>.+?)([\.?!;]|( \|)|$$)' \
 		--template '$${parsed} #Covid_19 $${url}' \
-		--workers 2 --local-scheduler --log-level INFO
+		--workers 2 --local-scheduler --log-level WARNING
+
+post-tweets:  ## Create tweets from downloaded pages and post them
+	"./$(_executable)" \
+		PostTweets \
+		--verbose \
+		--keywords '["opportunity"]' \
+		--pattern 'opportunity to (?P<parsed>.+?)([\.?!;]|( \|)|$$)' \
+		--template '$${parsed} #Covid_19 $${url}' \
+		--workers 2 --local-scheduler --log-level WARNING
 
 clean:  ## Remove all intermediate files except downloaded HTML pages
 	"./$(_executable_clean)" $(args)

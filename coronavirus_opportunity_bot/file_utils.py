@@ -42,12 +42,25 @@ def read_csv_dict(f: IO) -> Iterator[dict]:
     return csv.DictReader(f)
 
 
-def write_csv_dict(rows: List[dict], f: IO, fieldnames: Sequence[str]):
+def write_csv_dict(rows: List[dict], f: IO):
+    if not rows:
+        f.write('')
+        return
     writer = csv.DictWriter(
         f,
-        fieldnames=fieldnames,
+        fieldnames=rows[0].keys(),
         quoting=csv.QUOTE_NONNUMERIC,
         lineterminator='\n',
     )
     writer.writeheader()
     writer.writerows(rows)
+
+
+def write_csv_dict_row(row: dict, f: IO):
+    writer = csv.DictWriter(
+        f,
+        fieldnames=row.keys(),
+        quoting=csv.QUOTE_NONNUMERIC,
+        lineterminator='\n',
+    )
+    writer.writerow(row)
