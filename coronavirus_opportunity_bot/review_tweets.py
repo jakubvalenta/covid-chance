@@ -3,7 +3,7 @@ import logging
 import sys
 from pathlib import Path
 from textwrap import fill, indent
-from typing import Dict
+from typing import Dict, List
 
 from coronavirus_opportunity_bot.create_tweets import CreateTweets
 from coronavirus_opportunity_bot.tweet_list import TweetList
@@ -51,6 +51,7 @@ def main():
         )
     all_tweets = CreateTweets.read_all_tweets(args.data_path)
     reviewed_tweets = TweetList(get_reviewed_tweets_path(args.data_path))
+    pending_tweets: List[Dict[str, str]] = []
     for tweet in all_tweets:
         if not tweet['tweet']:
             continue
@@ -58,6 +59,11 @@ def main():
         if reviewed_tweet:
             print_tweet(reviewed_tweet, reviewed_tweet['status'])
             continue
+        pending_tweets.append(tweet)
+    if not pending_tweets:
+        logger.warning('Nothing to do, all tweets have already been reviewed')
+        return
+    for tweet in pending_tweets:
         print_tweet(tweet, 'review')
         inp = None
         while inp is None or (inp not in ('y', 'n', 'e', 'q', 's', '')):
