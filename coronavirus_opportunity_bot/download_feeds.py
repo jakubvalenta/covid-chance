@@ -162,7 +162,7 @@ class DownloadPageHTML(luigi.Task):
             f.write(html)
 
 
-class DownloadPage(luigi.Task):
+class DownloadPageText(luigi.Task):
     data_path = luigi.Parameter()
     feed_name = luigi.Parameter()
     page_url = luigi.Parameter()
@@ -252,7 +252,7 @@ class DownloadFeedPages(luigi.Task):
             self.data_path, self.feed_name, self.date_second
         )
         for page_url in page_urls:
-            yield DownloadPage(
+            yield DownloadPageText(
                 data_path=self.data_path,
                 feed_name=self.feed_name,
                 page_url=page_url,

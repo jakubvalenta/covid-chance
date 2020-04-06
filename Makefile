@@ -17,7 +17,7 @@ create-tweets:  ## Create tweets from downloaded pages
 		--keywords '["opportunity"]' \
 		--pattern 'opportunity to (?P<parsed>.+?)([\.?!;]|( \|)|$$)' \
 		--template '$${parsed} #Covid_19 @$${handle} $${url}' \
-		--workers 2 --local-scheduler --log-level WARNING
+		--workers 2 --local-scheduler --log-level INFO
 
 review-tweets:  ## Review created tweets
 	"./$(_executable)" python -m "$(_python_pkg).review_tweets" --verbose
