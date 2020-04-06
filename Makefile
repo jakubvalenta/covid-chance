@@ -10,7 +10,7 @@ run:  ## Run the pipeline
 		--keywords '["opportunity"]' \
 		--pattern 'opportunity to (?P<parsed>.+?)([\.?!;]|( \|)|$$)' \
 		--template '$${parsed} #Covid_19 $${url}' \
-		$(args) --workers 2 --local-scheduler --log-level WARNING
+		--workers 2 --local-scheduler --log-level INFO
 
 clean:  ## Remove all intermediate files except downloaded HTML pages
 	"./$(_executable_clean)" $(args)

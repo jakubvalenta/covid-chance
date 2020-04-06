@@ -3,12 +3,13 @@ import os
 import sys
 from pathlib import Path
 from string import Template
+from typing import Dict, Iterator, List
 
 import luigi
 
 from coronavirus_opportunity_bot.analyze import filter_lines, parse_lines
 from coronavirus_opportunity_bot.download import (
-    download_feed, download_page, get_page_text,
+    download_feed, download_page, get_page_text, simplify_url,
 )
 from coronavirus_opportunity_bot.file_utils import (
     csv_cache, read_csv_dict, read_first_line, safe_filename, write_csv_dict,
@@ -20,12 +21,18 @@ class DownloadPage(luigi.Task):
     feed_name = luigi.Parameter()
     page_url = luigi.Parameter()
 
+    @staticmethod
+    def get_output_path(data_path, feed_name, page_url) -> Path:
+        return (
+            Path(data_path)
+            / feed_name
+            / safe_filename(simplify_url(page_url))
+            / 'page.html'
+        )
+
     def output(self):
         return luigi.LocalTarget(
-            Path(self.data_path)
-            / self.feed_name
-            / safe_filename(self.page_url)
-            / 'page.html'
+            self.get_output_path(self.data_path, self.feed_name, self.page_url)
         )
 
     def run(self):
@@ -39,12 +46,18 @@ class GetPageText(luigi.Task):
     feed_name = luigi.Parameter()
     page_url = luigi.Parameter()
 
+    @staticmethod
+    def get_output_path(data_path, feed_name, page_url) -> Path:
+        return (
+            Path(data_path)
+            / feed_name
+            / safe_filename(simplify_url(page_url))
+            / 'page.txt'
+        )
+
     def output(self):
         return luigi.LocalTarget(
-            Path(self.data_path)
-            / self.feed_name
-            / safe_filename(self.page_url)
-            / 'page.txt'
+            self.get_output_path(self.data_path, self.feed_name, self.page_url)
         )
 
     def requires(self):
@@ -70,12 +83,18 @@ class AnalyzePage(luigi.Task):
     keywords = luigi.ListParameter()
     pattern = luigi.Parameter()
 
+    @staticmethod
+    def get_output_path(data_path, feed_name, page_url) -> Path:
+        return (
+            Path(data_path)
+            / feed_name
+            / safe_filename(simplify_url(page_url))
+            / 'analysis.csv'
+        )
+
     def output(self):
         return luigi.LocalTarget(
-            Path(self.data_path)
-            / self.feed_name
-            / safe_filename(self.page_url)
-            / 'analysis.csv'
+            self.get_output_path(self.data_path, self.feed_name, self.page_url)
         )
 
     def requires(self):
@@ -102,23 +121,37 @@ class AnalyzeFeed(luigi.Task):
     keywords = luigi.ListParameter()
     pattern = luigi.Parameter()
 
-    def output(self):
-        return luigi.LocalTarget(
-            Path(self.data_path) / self.feed_name / 'analysis.csv'
-        )
+    @staticmethod
+    def get_output_path(data_path, feed_name) -> Path:
+        return Path(data_path) / feed_name / 'analysis.csv'
 
     @staticmethod
-    def download_feed(data_path: str, feed_name: str):
-        @csv_cache(Path(data_path) / feed_name / 'feed.csv')
+    def get_feed_path(data_path, feed_name) -> Path:
+        return Path(data_path) / feed_name / 'feed.csv'
+
+    @staticmethod
+    def get_feed_url_path(data_path, feed_name) -> Path:
+        return Path(data_path) / feed_name / 'url.txt'
+
+    def output(self):
+        return luigi.LocalTarget(
+            self.get_output_path(self.data_path, self.feed_name)
+        )
+
+    @classmethod
+    def download_feed(cls, data_path: str, feed_name: str):
+        @csv_cache(cls.get_feed_path(data_path, feed_name))
         def download_feed_with_cache():
-            feed_url = read_first_line(Path(data_path) / feed_name / 'url.txt')
+            feed_url = read_first_line(
+                cls.get_feed_url_path(data_path, feed_name)
+            )
             return [(page_url,) for page_url in download_feed(feed_url)]
 
         return [row[0] for row in download_feed_with_cache()]
 
     def run(self):
         page_urls = self.download_feed(self.data_path, self.feed_name)
-        joined_analysis = []
+        joined_analysis: List[Dict[str, str]] = []
         for page_url in page_urls:
             page_input = yield AnalyzePage(
                 data_path=self.data_path,
@@ -142,8 +175,12 @@ class CreateTweets(luigi.Task):
     auth_token = luigi.Parameter(default='')
     verbose = luigi.BoolParameter(default=False)
 
+    @staticmethod
+    def get_feed_url_paths(data_path: str) -> Iterator[Path]:
+        return Path(data_path).glob('*/url.txt')
+
     def requires(self):
-        for path in Path(self.data_path).glob('*/url.txt'):
+        for path in self.get_feed_url_paths(self.data_path):
             yield AnalyzeFeed(
                 data_path=self.data_path,
                 feed_name=path.parent.name,
@@ -185,13 +222,13 @@ class CleanAnalysis(luigi.Task):
     data_path = luigi.Parameter(default='./data')
 
     def run(self):
-        for url_path in Path(self.data_path).glob('*/url.txt'):
+        for url_path in CreateTweets.get_feed_url_paths(self.data_path):
             feed_name = url_path.parent.name
-            feed_dir = Path(self.data_path) / feed_name
-            (feed_dir / 'analysis.csv').unlink(missing_ok=True)
-            (feed_dir / 'tweets.csv').unlink(missing_ok=True)
+            AnalyzeFeed.get_output_path(self.data_path, feed_name).unlink(
+                missing_ok=True
+            )
             page_urls = AnalyzeFeed.download_feed(self.data_path, feed_name)
             for page_url in page_urls:
-                page_dir = feed_dir / safe_filename(page_url)
-                # (page_dir / 'page.txt').unlink(missing_ok=True)
-                (page_dir / 'analysis.csv').unlink(missing_ok=True)
+                AnalyzePage.get_output_path(
+                    self.data_path, feed_name, page_url
+                ).unlink(missing_ok=True)

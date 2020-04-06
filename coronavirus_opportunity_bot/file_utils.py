@@ -8,7 +8,7 @@ from typing import IO, Any, Callable, Iterator, List, Sequence
 
 def safe_filename(s: str) -> str:
     short_hash = sha256(s.encode()).hexdigest()[:7]
-    safe_str = re.sub(r'[^A-Za-z0-9_\-\.]', '_', s)
+    safe_str = re.sub(r'[^A-Za-z0-9_\-\.]', '_', s).strip('_')
     return f'{safe_str}--{short_hash}'
 
 

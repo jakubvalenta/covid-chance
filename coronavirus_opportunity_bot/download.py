@@ -1,6 +1,7 @@
 import logging
 import re
 from typing import Iterator, List, Sequence, Type
+from urllib.parse import urlsplit, urlunsplit
 
 import feedparser
 import requests
@@ -10,6 +11,11 @@ from bs4 import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def simplify_url(url: str) -> str:
+    u = urlsplit(url)
+    return urlunsplit(('', u.netloc, u.path, u.query, ''))
 
 
 def download_page(url: str) -> str:
