@@ -180,7 +180,7 @@ class DownloadFeedPages(luigi.Task):
 
     @classmethod
     def download_feed(
-        cls, data_path: str, feed_name: str, date_second: str
+        cls, data_path: str, feed_name: str, date_second: datetime.datetime
     ) -> List[str]:
         @csv_cache(cls.get_feed_path(data_path, feed_name, date_second))
         def download_feed_with_cache():
@@ -323,7 +323,7 @@ class CreateFeedTweets(luigi.Task):
         )
 
     @staticmethod
-    def get_page_urls(data_path: str, feed_name: str) -> Path:
+    def get_page_urls(data_path: str, feed_name: str) -> Iterator[str]:
         for page_url_path in (Path(data_path) / feed_name).glob(
             '*/page_url.txt'
         ):
