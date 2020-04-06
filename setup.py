@@ -12,12 +12,12 @@ setup(
     url='https://www.github.com/jakubvalenta/coronavirus-opportunity-bot',
     author='Jakub Valenta',
     author_email='jakub@jakubvalenta.cz',
-    license='Apache Software License',
+    license='GNU General Public License v3 or later (GPLv3+)',
     classifiers=[
         'Development Status :: 3 - Alpha',
-        'Intended Audience :: End Users/Desktop',
-        'Topic :: Utilities',
-        'License :: OSI Approved :: Apache Software License',
+        'Intended Audience :: Developers',
+        'Topic :: Artistic Software',
+        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',  # noqa: E501
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
