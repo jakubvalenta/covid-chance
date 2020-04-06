@@ -66,6 +66,9 @@ def main():
         posted_tweets.append(random_tweet)
         return
     for tweet in pending_tweets:
+        if tweet in posted_tweets:
+            logger.warning('JUST POSTED    %s', tweet['tweet'])
+            continue
         post_tweet(tweet)
         posted_tweets.append(tweet)
 

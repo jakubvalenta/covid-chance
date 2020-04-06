@@ -64,6 +64,9 @@ def main():
         logger.warning('Nothing to do, all tweets have already been reviewed')
         return
     for tweet in pending_tweets:
+        if tweet in reviewed_tweets:
+            print_tweet(tweet, 'reviewed')
+            continue
         print_tweet(tweet, 'review')
         inp = None
         while inp is None or (inp not in ('y', 'n', 'e', 'q', 's', '')):

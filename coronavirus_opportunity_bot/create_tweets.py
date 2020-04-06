@@ -17,9 +17,12 @@ from coronavirus_opportunity_bot.file_utils import (
 )
 
 
-def filter_lines(f: IO, keywords: Sequence[str]) -> Iterator[str]:
-    r = regex.compile(r'\L<keywords>', keywords=keywords)
-    return (line.strip() for line in f if r.search(line))
+def filter_lines(f: IO, match_line: Sequence[Sequence[str]]) -> Iterator[str]:
+    regexes = [
+        regex.compile(r'\L<keywords>', keywords=keywords, flags=regex.I)
+        for keywords in match_line
+    ]
+    return (line.strip() for line in f if all(r.search(line) for r in regexes))
 
 
 def parse_lines(
@@ -40,9 +43,9 @@ class CreatePageTweets(luigi.Task):
     feed_name = luigi.Parameter()
     feed_twitter_handle = luigi.Parameter()
     page_url = luigi.Parameter()
-    keywords = luigi.ListParameter()
-    pattern = luigi.Parameter()
-    template = luigi.Parameter()
+    match_line = luigi.ListParameter()
+    parse_pattern = luigi.Parameter()
+    tweet_template = luigi.Parameter()
 
     @staticmethod
     def get_output_path(data_path: str, feed_name: str, page_url: str) -> Path:
@@ -66,15 +69,15 @@ class CreatePageTweets(luigi.Task):
         )
 
     def run(self):
-        tweet_tmpl = Template(self.template)
+        tweet_template_obj = Template(self.tweet_template)
         with self.input().open('r') as f:
-            lines = filter_lines(f, self.keywords)
+            lines = filter_lines(f, self.match_line)
             tweets = [
                 {
                     'url': self.page_url,
                     'line': line,
                     'parsed': parsed,
-                    'tweet': tweet_tmpl.substitute(
+                    'tweet': tweet_template_obj.substitute(
                         parsed=parsed,
                         url=self.page_url,
                         handle=self.feed_twitter_handle,
@@ -82,7 +85,7 @@ class CreatePageTweets(luigi.Task):
                     if parsed
                     else '',
                 }
-                for line, parsed in parse_lines(lines, self.pattern)
+                for line, parsed in parse_lines(lines, self.parse_pattern)
             ]
         with self.output().open('w') as f:
             write_csv_dict(tweets, f)
@@ -90,9 +93,9 @@ class CreatePageTweets(luigi.Task):
 
 class CreateTweets(luigi.Task):
     data_path = luigi.Parameter()
-    keywords = luigi.ListParameter()
-    pattern = luigi.Parameter()
-    template = luigi.Parameter()
+    match_line = luigi.ListParameter()
+    parse_pattern = luigi.Parameter()
+    tweet_template = luigi.Parameter()
 
     @staticmethod
     def get_page_urls(data_path: str, feed_name: str) -> Iterator[str]:
@@ -133,9 +136,9 @@ class CreateTweets(luigi.Task):
                     feed_name=feed_name,
                     feed_twitter_handle=feed_twitter_handle,
                     page_url=page_url,
-                    keywords=self.keywords,
-                    pattern=self.pattern,
-                    template=self.template,
+                    match_line=self.match_line,
+                    parse_pattern=self.parse_pattern,
+                    tweet_template=self.tweet_template,
                 )
 
     def run(self):
@@ -167,9 +170,9 @@ def main():
         [
             CreateTweets(
                 data_path=args.data_path,
-                keywords=config['keywords'],
-                pattern=config['pattern'],
-                template=config['template'],
+                match_line=config['match_line'],
+                parse_pattern=config['parse_pattern'],
+                tweet_template=config['tweet_template'],
             )
         ],
         workers=2,
