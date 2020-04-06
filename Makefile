@@ -25,6 +25,9 @@ review-tweets:  ## Review created tweets
 post-tweets:  ## Post reviewed tweets
 	"./$(_executable)" python -m "$(_python_pkg).post_tweets" --verbose
 
+post-single-tweet:  ## Post a single random tweet
+	"./$(_executable)" python -m "$(_python_pkg).post_tweets" --single --verbose
+
 clean-tweets:  ## Remove created tweets
 	"./$(_executable)" python -m "$(_python_pkg).clean_tweets" --verbose
 
