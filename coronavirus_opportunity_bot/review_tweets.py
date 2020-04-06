@@ -43,23 +43,23 @@ def main():
         print('REVIEW', tweet['tweet'])
         print('      ', tweet['line'])
         inp = None
-        while inp is None or (inp not in ('y', 'n', 'e', 'q', '')):
+        while inp is None or (inp not in ('y', 'n', 'e', 'q', 's', '')):
             inp = input(
                 'Do you like this tweet? '
                 '"y" = yes, '
-                '"n" or nothing = no, '
+                '"n" = no, '
                 '"e" = edit, '
-                '"s" = skip (ask next time again), '
+                '"s" or nothing = skip (ask next time again), '
                 '"q" = quit \n'
                 '> '
             )
         if inp == 'q':
             break
-        if inp == 's':
+        if inp in ('s', ''):
             continue
         if inp == 'y':
             status = REVIEW_STATUS_APPROVED
-        elif inp in ('n', ''):
+        elif inp == 'n':
             status = REVIEW_STATUS_REJECTED
         elif inp == 'e':
             inp_text = None
