@@ -15,7 +15,7 @@ create-tweets:  ## Create tweets from downloaded pages
 		CreateTweets \
 		--verbose \
 		--keywords '["opportunity"]' \
-		--pattern 'opportunity to (?P<parsed>.+?)([\.?!;]|( \|)|$$)' \
+		--pattern 'opportunity to (?P<parsed>.+?)([\.?!;,]|( \|)|$$)' \
 		--template '$${parsed} #Covid_19 @$${handle} $${url}' \
 		--workers 2 --local-scheduler --log-level INFO
 
