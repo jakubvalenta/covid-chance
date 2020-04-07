@@ -1,6 +1,6 @@
 import argparse
+import json
 import logging
-import os
 import random
 import sys
 from pathlib import Path
@@ -20,16 +20,18 @@ def get_posted_tweets_path(data_path: str) -> Path:
     return Path(data_path) / f'posted_tweets.csv'
 
 
-def post_tweet(tweet: Dict[str, str], dry_run: bool = True):
+def post_tweet(
+    tweet: Dict[str, str], secrets: Dict[str, str], dry_run: bool = True
+):
     logger.warning('POSTING NOW    %s', tweet['tweet'])
     if dry_run:
         logger.warning('This is just a dry run, not calling Twitter API')
         return False
     api = twitter.Api(
-        consumer_key='[consumer key]',
-        consumer_secret='[consumer secret]',
-        paccess_token_key='[access token]',
-        access_token_secret='[access token secret]',
+        consumer_key=secrets['consumer_key'],
+        consumer_secret=secrets['consumer_secret'],
+        access_token_key=secrets['access_token'],
+        access_token_secret=secrets['access_token_secret'],
     )
     status = api.PostUpdate(status=tweet['text'])
     logger.warning(
@@ -44,13 +46,13 @@ def main():
         '-d', '--data-path', help='Data path', default='./data'
     )
     parser.add_argument(
-        '-t',
-        '--auth-token',
-        help='Twitter authentication token',
-        default=os.environ.get('AUTH_TOKEN'),
+        '-s', '--secrets', help='Secrets file path', required=True
     )
     parser.add_argument(
-        '-s', '--single', help='Post a single tweet', action='store_true'
+        '-o',
+        '--one',
+        help='Post a single randomly selected tweet',
+        action='store_true',
     )
     parser.add_argument(
         '-v', '--verbose', action='store_true', help='Enable debugging output'
@@ -60,8 +62,8 @@ def main():
         logging.basicConfig(
             stream=sys.stderr, level=logging.INFO, format='%(message)s'
         )
-    if not args.auth_token:
-        raise ValueError('Auth token is not defined')
+    with open(args.secrets, 'r') as f:
+        secrets = json.load(f)
     reviewed_tweets = TweetList(get_reviewed_tweets_path(args.data_path))
     posted_tweets = TweetList(get_posted_tweets_path(args.data_path))
     pending_tweets: List[Dict[str, str]] = []
@@ -78,7 +80,7 @@ def main():
     if args.single:
         random.shuffle(pending_tweets)
         random_tweet = pending_tweets[0]
-        post_tweet(random_tweet)
+        post_tweet(random_tweet, secrets)
         posted_tweets.append(random_tweet)
         return
     for tweet in pending_tweets:

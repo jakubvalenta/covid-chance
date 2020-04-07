@@ -26,6 +26,7 @@ post-tweets:  ## Post reviewed tweets
 	"./$(_executable)" python -m "$(_python_pkg).post_tweets" \
 		--verbose \
 		--data-path "$(HOME)/.cache/covid-chance/data" \
+		--secrets "$(HOME)/.config/covid-chance/secrets.json"
 
 post-single-tweet:  ## Post a single random tweet
 	"./$(_executable)" python -m "$(_python_pkg).post_tweets" \
