@@ -4,14 +4,12 @@ import logging
 import sys
 from pathlib import Path
 from string import Template
-from typing import IO, Iterable, Iterator, Sequence, Tuple
+from typing import IO, Dict, Iterable, Iterator, List, Sequence, Tuple
 
 import luigi
 import regex
 
-from covid_chance.download_feeds import (
-    DownloadFeeds, DownloadPageText, simplify_url,
-)
+from covid_chance.download_feeds import DownloadPageText, simplify_url
 from covid_chance.file_utils import (
     read_csv_dict, read_first_line, safe_filename, write_csv_dict,
 )
@@ -90,6 +88,7 @@ class CreatePageTweets(luigi.Task):
 
 class CreateTweets(luigi.Task):
     data_path = luigi.Parameter()
+    feeds = luigi.ListParameter()
     match_line = luigi.ListParameter()
     parse_pattern = luigi.Parameter()
     tweet_template = luigi.Parameter()
@@ -102,32 +101,28 @@ class CreateTweets(luigi.Task):
             yield read_first_line(page_url_path)
 
     @classmethod
-    def read_all_page_urls(cls, data_path: str) -> Iterator[Tuple[str, str]]:
-        for feed_info_path in DownloadFeeds.get_feed_info_paths(data_path):
-            feed_name = feed_info_path.parent.name
-            page_urls = cls.get_page_urls(data_path, feed_name)
-            for page_url in page_urls:
-                yield feed_name, page_url
-
-    @classmethod
-    def read_all_tweets(cls, data_path: str):
-        for feed_name, page_url in cls.read_all_page_urls(data_path):
-            page_tweets_path = CreatePageTweets.get_output_path(
-                data_path, feed_name, page_url
-            )
-            with page_tweets_path.open('r') as f:
-                yield from read_csv_dict(f)
+    def read_all_tweets(
+        cls, data_path: str, feeds: List[Dict[str, str]]
+    ) -> Iterator[Dict[str, str]]:
+        for feed in feeds:
+            for page_url in cls.get_page_urls(data_path, feed['name']):
+                page_tweets_path = CreatePageTweets.get_output_path(
+                    data_path, feed['name'], page_url
+                )
+                with page_tweets_path.open('r') as f:
+                    yield from read_csv_dict(f)
 
     def requires(self):
-        for feed_name, page_url in self.read_all_page_urls(self.data_path):
-            yield CreatePageTweets(
-                data_path=self.data_path,
-                feed_name=feed_name,
-                page_url=page_url,
-                match_line=self.match_line,
-                parse_pattern=self.parse_pattern,
-                tweet_template=self.tweet_template,
-            )
+        for feed in self.feeds:
+            for page_url in self.get_page_urls(self.data_path, feed['name']):
+                yield CreatePageTweets(
+                    data_path=self.data_path,
+                    feed_name=feed['name'],
+                    page_url=page_url,
+                    match_line=self.match_line,
+                    parse_pattern=self.parse_pattern,
+                    tweet_template=self.tweet_template,
+                )
 
     def run(self):
         pass
@@ -158,6 +153,7 @@ def main():
         [
             CreateTweets(
                 data_path=args.data_path,
+                feeds=config['feeds'],
                 match_line=config['match_line'],
                 parse_pattern=config['parse_pattern'],
                 tweet_template=config['tweet_template'],

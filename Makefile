@@ -2,12 +2,13 @@ _python_pkg = covid_chance
 _executable = covid-chance
 _executable_clean = covid-chance-clean
 
-.PHONY: download create-tweets post-tweets clean-tweets setup setup-dev test lint tox reformat help
+.PHONY: download-feeds create-tweets post-tweets clean-tweets setup setup-dev test lint tox reformat help
 
-download:  ## Download pages from feeds
+download-feeds:  ## Download pages from feeds
 	"./$(_executable)" python -m "$(_python_pkg).download_feeds" \
 		--verbose \
-		--data-path "$(HOME)/.cache/covid-chance/data"
+		--data-path "$(HOME)/.cache/covid-chance/data" \
+		--config "$(HOME)/.config/covid-chance/config.json"
 
 create-tweets:  ## Create tweets from downloaded pages
 	"./$(_executable)" python -m "$(_python_pkg).create_tweets" \
@@ -19,6 +20,7 @@ review-tweets:  ## Review created tweets
 	"./$(_executable)" python -m "$(_python_pkg).review_tweets" \
 		--verbose \
 		--data-path "$(HOME)/.cache/covid-chance/data" \
+		--config "$(HOME)/.config/covid-chance/config.json"
 
 post-tweets:  ## Post reviewed tweets
 	"./$(_executable)" python -m "$(_python_pkg).post_tweets" \
@@ -35,6 +37,7 @@ clean-tweets:  ## Remove created tweets
 	"./$(_executable)" python -m "$(_python_pkg).clean_tweets" \
 		--verbose \
 		--data-path "$(HOME)/.cache/covid-chance/data" \
+		--config "$(HOME)/.config/covid-chance/config.json"
 
 setup:  ## Create Pipenv virtual environment and install dependencies.
 	pipenv --three --site-packages

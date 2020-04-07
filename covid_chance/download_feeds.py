@@ -201,6 +201,7 @@ class DownloadPageText(luigi.Task):
 class DownloadFeedPages(luigi.Task):
     data_path = luigi.Parameter()
     feed_name = luigi.Parameter()
+    feed_url = luigi.Parameter()
     date_second = luigi.DateSecondParameter()
 
     @staticmethod
@@ -223,10 +224,6 @@ class DownloadFeedPages(luigi.Task):
             / f'feed_pages-{date_second.isoformat()}.csv'
         )
 
-    @staticmethod
-    def get_feed_info_path(data_path: str, feed_name: str) -> Path:
-        return Path(data_path) / feed_name / 'feed_info.json'
-
     def output(self):
         return luigi.LocalTarget(
             self.get_output_path(
@@ -236,21 +233,22 @@ class DownloadFeedPages(luigi.Task):
 
     @classmethod
     def download_feed(
-        cls, data_path: str, feed_name: str, date_second: datetime.datetime
+        cls,
+        data_path: str,
+        feed_name: str,
+        feed_url: str,
+        date_second: datetime.datetime,
     ) -> List[str]:
         @csv_cache(cls.get_feed_path(data_path, feed_name, date_second))
         def download_feed_with_cache():
-            feed_info_path = cls.get_feed_info_path(data_path, feed_name)
-            with feed_info_path.open('r') as f:
-                feed_info = json.load(f)
-            page_urls = download_feed(feed_info['url'])
+            page_urls = download_feed(feed_url)
             return [(page_url,) for page_url in page_urls]
 
         return [row[0] for row in download_feed_with_cache()]
 
     def requires(self):
         page_urls = self.download_feed(
-            self.data_path, self.feed_name, self.date_second
+            self.data_path, self.feed_name, self.feed_url, self.date_second
         )
         for page_url in page_urls:
             yield DownloadPageText(
@@ -266,6 +264,7 @@ class DownloadFeedPages(luigi.Task):
 
 class DownloadFeeds(luigi.Task):
     data_path = luigi.Parameter()
+    feeds = luigi.ListParameter()
     date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
 
     @staticmethod
@@ -274,20 +273,17 @@ class DownloadFeeds(luigi.Task):
             Path(data_path) / f'all_downloaded-{date_second.isoformat()}.txt'
         )
 
-    @staticmethod
-    def get_feed_info_paths(data_path: str) -> Iterator[Path]:
-        return Path(data_path).glob('*/feed_info.json')
-
     def output(self):
         return luigi.LocalTarget(
             self.get_output_path(self.data_path, self.date_second)
         )
 
     def requires(self):
-        for path in self.get_feed_info_paths(self.data_path):
+        for feed in self.feeds:
             yield DownloadFeedPages(
                 data_path=self.data_path,
-                feed_name=path.parent.name,
+                feed_name=feed['name'],
+                feed_url=feed['url'],
                 date_second=self.date_second,
             )
 
@@ -302,6 +298,9 @@ def main():
         '-d', '--data-path', help='Data path', default='./data'
     )
     parser.add_argument(
+        '-c', '--config-path', help='Configuration file path', required=True
+    )
+    parser.add_argument(
         '-v', '--verbose', action='store_true', help='Enable debugging output'
     )
     args = parser.parse_args()
@@ -309,8 +308,10 @@ def main():
         logging.basicConfig(
             stream=sys.stderr, level=logging.INFO, format='%(message)s'
         )
+    with open(args.config_path, 'r') as f:
+        config = json.load(f)
     luigi.build(
-        [DownloadFeeds(data_path=args.data_path)],
+        [DownloadFeeds(data_path=args.data_path, feeds=config['feeds'])],
         workers=2,
         local_scheduler=True,
         log_level='INFO',

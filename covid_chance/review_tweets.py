@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import sys
 from pathlib import Path
@@ -42,6 +43,9 @@ def main():
         '-d', '--data-path', help='Data path', default='./data'
     )
     parser.add_argument(
+        '-c', '--config-path', help='Configuration file path', required=True
+    )
+    parser.add_argument(
         '-v', '--verbose', action='store_true', help='Enable debugging output'
     )
     args = parser.parse_args()
@@ -49,7 +53,9 @@ def main():
         logging.basicConfig(
             stream=sys.stderr, level=logging.INFO, format='%(message)s'
         )
-    all_tweets = CreateTweets.read_all_tweets(args.data_path)
+    with open(args.config_path, 'r') as f:
+        config = json.load(f)
+    all_tweets = CreateTweets.read_all_tweets(args.data_path, config['feeds'])
     reviewed_tweets = TweetList(get_reviewed_tweets_path(args.data_path))
     pending_tweets: List[Dict[str, str]] = []
     for tweet in all_tweets:

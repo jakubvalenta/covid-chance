@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import sys
 
@@ -13,6 +14,9 @@ def main():
         '-d', '--data-path', help='Data path', default='./data'
     )
     parser.add_argument(
+        '-c', '--config-path', help='Configuration file path', required=True
+    )
+    parser.add_argument(
         '-v', '--verbose', action='store_true', help='Enable debugging output'
     )
     args = parser.parse_args()
@@ -20,11 +24,16 @@ def main():
         logging.basicConfig(
             stream=sys.stderr, level=logging.INFO, format='%(message)s'
         )
-    for feed_name, page_url in CreateTweets.read_all_page_urls(args.data_path):
-        page_tweets_path = CreatePageTweets.get_output_path(
-            args.data_path, feed_name, page_url
-        )
-        page_tweets_path.unlink(missing_ok=True)
+    with open(args.config_path, 'r') as f:
+        config = json.load(f)
+    for feed in config['feeds']:
+        for page_url in CreateTweets.get_page_urls(
+            args.data_path, feed['name']
+        ):
+            page_tweets_path = CreatePageTweets.get_output_path(
+                args.data_path, feed['name'], page_url
+            )
+            page_tweets_path.unlink(missing_ok=True)
 
 
 if __name__ == '__main__':
