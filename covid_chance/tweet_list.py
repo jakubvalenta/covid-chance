@@ -2,7 +2,7 @@ import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
-from coronavirus_opportunity_bot.file_utils import (
+from covid_chance.file_utils import (
     read_csv_dict, write_csv_dict, write_csv_dict_row,
 )
 

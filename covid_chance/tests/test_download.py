@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from coronavirus_opportunity_bot.download import clean_whitespace
+from covid_chance.download_feeds import clean_whitespace
 
 
 class TestDownload(TestCase):

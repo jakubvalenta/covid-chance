@@ -2,14 +2,14 @@ from pathlib import Path
 
 from setuptools import find_packages, setup
 
-from coronavirus_opportunity_bot import __title__
+from covid_chance import __title__
 
 setup(
-    name='coronavirus-opportunity-bot',
+    name='covid-chance',
     version='0.1.0',
     description=__title__,
     long_description=(Path(__file__).parent / 'README.md').read_text(),
-    url='https://www.github.com/jakubvalenta/coronavirus-opportunity-bot',
+    url='https://www.github.com/jakubvalenta/covid-chance',
     author='Jakub Valenta',
     author_email='jakub@jakubvalenta.cz',
     license='GNU General Public License v3 or later (GPLv3+)',

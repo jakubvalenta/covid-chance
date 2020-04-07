@@ -2,9 +2,7 @@ import argparse
 import logging
 import sys
 
-from coronavirus_opportunity_bot.create_tweets import (
-    CreatePageTweets, CreateTweets,
-)
+from covid_chance.create_tweets import CreatePageTweets, CreateTweets
 
 logger = logging.getLogger(__name__)
 

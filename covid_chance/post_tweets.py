@@ -8,10 +8,10 @@ from typing import Dict, List
 
 import twitter
 
-from coronavirus_opportunity_bot.review_tweets import (
+from covid_chance.review_tweets import (
     REVIEW_STATUS_APPROVED, get_reviewed_tweets_path,
 )
-from coronavirus_opportunity_bot.tweet_list import TweetList
+from covid_chance.tweet_list import TweetList
 
 logger = logging.getLogger(__name__)
 

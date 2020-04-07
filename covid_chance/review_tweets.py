@@ -5,8 +5,8 @@ from pathlib import Path
 from textwrap import fill, indent
 from typing import Dict, List
 
-from coronavirus_opportunity_bot.create_tweets import CreateTweets
-from coronavirus_opportunity_bot.tweet_list import TweetList
+from covid_chance.create_tweets import CreateTweets
+from covid_chance.tweet_list import TweetList
 
 logger = logging.getLogger(__name__)
 

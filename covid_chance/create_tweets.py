@@ -9,10 +9,10 @@ from typing import IO, Iterable, Iterator, Sequence, Tuple
 import luigi
 import regex
 
-from coronavirus_opportunity_bot.download_feeds import (
+from covid_chance.download_feeds import (
     DownloadFeeds, DownloadPageText, simplify_url,
 )
-from coronavirus_opportunity_bot.file_utils import (
+from covid_chance.file_utils import (
     read_csv_dict, read_first_line, safe_filename, write_csv_dict,
 )
 

@@ -3,7 +3,7 @@
 A Twitter bot that tweets about what an opportunity the Coronavirus / Covid-19 /
 SASR-CoV-2 pandemics has been.
 
-![Coronavirus Opportunity Bot](./screenshots/coronavirus-opportunity-bot.png)
+![Coronavirus Opportunity Bot](./screenshots/covid-chance.png)
 
 ## Installation
 
@@ -54,7 +54,7 @@ $ make setup
    your Twitter API Access Token. Example
 
     ``` shell
-    $ ./coronavirus-opportunity-bot \
+    $ ./covid-chance \
         --verbose \
         --data-dir="./data" \
         --auth-token="$(secret-tool lookup twitter auth-token)"

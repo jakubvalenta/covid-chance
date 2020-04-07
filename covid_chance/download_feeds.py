@@ -16,7 +16,7 @@ from bs4 import (
     ProcessingInstruction,
 )
 
-from coronavirus_opportunity_bot.file_utils import csv_cache, safe_filename
+from covid_chance.file_utils import csv_cache, safe_filename
 
 logger = logging.getLogger(__name__)
 

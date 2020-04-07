@@ -1,40 +1,40 @@
-_python_pkg = coronavirus_opportunity_bot
-_executable = coronavirus-opportunity-bot
-_executable_clean = coronavirus-opportunity-bot-clean
+_python_pkg = covid_chance
+_executable = covid-chance
+_executable_clean = covid-chance-clean
 
 .PHONY: download create-tweets post-tweets clean-tweets setup setup-dev test lint tox reformat help
 
 download:  ## Download pages from feeds
 	"./$(_executable)" python -m "$(_python_pkg).download_feeds" \
 		--verbose \
-		--data-path "$(HOME)/.cache/coronavirus-opportunity-bot/data"
+		--data-path "$(HOME)/.cache/covid-chance/data"
 
 create-tweets:  ## Create tweets from downloaded pages
 	"./$(_executable)" python -m "$(_python_pkg).create_tweets" \
 		--verbose \
-		--data-path "$(HOME)/.cache/coronavirus-opportunity-bot/data" \
-		--config "$(HOME)/.config/coronavirus-opportunity-bot/config.json"
+		--data-path "$(HOME)/.cache/covid-chance/data" \
+		--config "$(HOME)/.config/covid-chance/config.json"
 
 review-tweets:  ## Review created tweets
 	"./$(_executable)" python -m "$(_python_pkg).review_tweets" \
 		--verbose \
-		--data-path "$(HOME)/.cache/coronavirus-opportunity-bot/data" \
+		--data-path "$(HOME)/.cache/covid-chance/data" \
 
 post-tweets:  ## Post reviewed tweets
 	"./$(_executable)" python -m "$(_python_pkg).post_tweets" \
 		--verbose \
-		--data-path "$(HOME)/.cache/coronavirus-opportunity-bot/data" \
+		--data-path "$(HOME)/.cache/covid-chance/data" \
 
 post-single-tweet:  ## Post a single random tweet
 	"./$(_executable)" python -m "$(_python_pkg).post_tweets" \
 		--verbose \
 		--single \
-		--data-path "$(HOME)/.cache/coronavirus-opportunity-bot/data" \
+		--data-path "$(HOME)/.cache/covid-chance/data" \
 
 clean-tweets:  ## Remove created tweets
 	"./$(_executable)" python -m "$(_python_pkg).clean_tweets" \
 		--verbose \
-		--data-path "$(HOME)/.cache/coronavirus-opportunity-bot/data" \
+		--data-path "$(HOME)/.cache/covid-chance/data" \
 
 setup:  ## Create Pipenv virtual environment and install dependencies.
 	pipenv --three --site-packages
@@ -56,6 +56,7 @@ tox:  ## Test with tox
 
 reformat:  ## Reformat Python code using Black
 	black -l 79 --skip-string-normalization $(_python_pkg)
+	pipenv run isort -rc $(_python_pkg)
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
