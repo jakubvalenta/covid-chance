@@ -1,7 +1,7 @@
 # Coronavirus Opportunity Bot
 
 A Twitter bot that tweets about what an opportunity the Coronavirus / Covid-19 /
-SASR-CoV-2 pandemics has been.
+SASR-CoV-2 pandemics is.
 
 ![Coronavirus Opportunity Bot](./screenshots/covid-chance.png)
 
@@ -37,37 +37,50 @@ $ make setup
 
 ## Usage
 
-1. Create a new directory for the new feed to monitor. Example:
+1. Create a configuration file based on
+   [config.sample.json](./config.sample.json).
+
+2. Download pages from the news feeds.
 
     ``` shell
-    $ mkdir -p "data/The Guardian"
+    $ make download
     ```
 
-2. Create a text file with the URL of the feed. Example:
+    Running this command again will always download the latest version of the
+    feed and save the new pages. The pages will be stored in the data
+    directory. If a page with a given URL is already saved, it will not be
+    downloaded again.
 
-    ``` csv
-    # data/The Guardian/url.txt
-    https://www.theguardian.com/international/rss
-    ```
-
-3. Run the processing pipeline with arguments specifying the data directory and
-   your Twitter API Access Token. Example
+3. Create tweets from the downloaded pages:
 
     ``` shell
-    $ ./covid-chance \
-        --verbose \
-        --data-dir="./data" \
-        --auth-token="$(secret-tool lookup twitter auth-token)"
+    $ make create-tweets
     ```
 
-    This will download all articles from the RSS/Atom feed defined in `url.txt`,
-    analyze if mention a coronavirus opportunity, create a tweet and post it to
-    your Twitter account.
+    The created tweets will be stored in the data directory. Running this
+    command again will not recreate existing tweets, it will only create tweets
+    for new pages.
 
-    All intermediate data will be stored in the data directory.
+4. Review the created tweets:
 
-    If the pipeline execution fails anywhere in the process, you can safely
-    rerun it and it will continue where it left of.
+    ``` shell
+    $ make review-tweets
+    ```
+
+    The reviewed tweets will be stored in a file in the data directory. Running
+    this command again will not ask you for a review of the same tweets again.
+
+5. Create a file with you Twitter API secrets based on
+   [secrets.sample.json](./secrets.sample.json).
+
+6. Post the reviewed tweets:
+
+    ``` shell
+    $ make post-tweets
+    ```
+
+    The posted tweets will be stored in a file in the data directory. Running
+    this command again will not post the same tweets again.
 
 ## Development
 

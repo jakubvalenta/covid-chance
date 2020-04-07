@@ -1,0 +1,18 @@
+{
+  "feeds": [
+    {
+      "name": "Example feed",
+      "url": "https://www.example.com/rss.xml"
+    },
+    {
+      "name": "Another feed",
+      "url": "https://www.example.com/foo/atom"
+    }
+  ],
+  "match_line": [
+    ["one", "of", "these keywords"],
+    ["and at the same time", "one", "of", "these"]
+  ],
+  "parse_pattern": "(?P<parsed>some words until end of sentence .+?)([\\.?!;,]|$)",
+  "tweet_template": "${parsed} #FooHashtag ${url}"
+}
