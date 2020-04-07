@@ -28,8 +28,8 @@ setup(
         'feedparser',
         'luigi',
         'lxml',
+        'python-twitter',
         'regex',
         'requests',
-        'twitter',
     ],
 )
