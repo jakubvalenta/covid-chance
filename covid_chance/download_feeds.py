@@ -116,7 +116,7 @@ class SavePageURL(luigi.Task):
     def get_output_path(data_path, feed_name, page_url) -> Path:
         return (
             Path(data_path)
-            / feed_name
+            / safe_filename(feed_name)
             / safe_filename(simplify_url(page_url))
             / 'page_url.txt'
         )
@@ -140,7 +140,7 @@ class DownloadPageHTML(luigi.Task):
     def get_output_path(data_path, feed_name, page_url) -> Path:
         return (
             Path(data_path)
-            / feed_name
+            / safe_filename(feed_name)
             / safe_filename(simplify_url(page_url))
             / 'page_content.html'
         )
@@ -172,7 +172,7 @@ class DownloadPageText(luigi.Task):
     def get_output_path(data_path, feed_name, page_url) -> Path:
         return (
             Path(data_path)
-            / feed_name
+            / safe_filename(feed_name)
             / safe_filename(simplify_url(page_url))
             / 'page_content.txt'
         )
@@ -210,7 +210,7 @@ class DownloadFeedPages(luigi.Task):
     ) -> Path:
         return (
             Path(data_path)
-            / feed_name
+            / safe_filename(feed_name)
             / f'feed_downloaded-{date_second.isoformat()}.txt'
         )
 
@@ -220,7 +220,7 @@ class DownloadFeedPages(luigi.Task):
     ) -> Path:
         return (
             Path(data_path)
-            / feed_name
+            / safe_filename(feed_name)
             / f'feed_pages-{date_second.isoformat()}.csv'
         )
 

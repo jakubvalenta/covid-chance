@@ -48,7 +48,7 @@ class CreatePageTweets(luigi.Task):
     def get_output_path(data_path: str, feed_name: str, page_url: str) -> Path:
         return (
             Path(data_path)
-            / feed_name
+            / safe_filename(feed_name)
             / safe_filename(simplify_url(page_url))
             / 'page_tweets.csv'
         )
@@ -95,7 +95,7 @@ class CreateTweets(luigi.Task):
 
     @staticmethod
     def get_page_urls(data_path: str, feed_name: str) -> Iterator[str]:
-        for page_url_path in (Path(data_path) / feed_name).glob(
+        for page_url_path in (Path(data_path) / safe_filename(feed_name)).glob(
             '*/page_url.txt'
         ):
             yield read_first_line(page_url_path)
