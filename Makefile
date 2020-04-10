@@ -1,44 +1,40 @@
-_python_pkg = covid_chance
-_executable = covid-chance
-_executable_clean = covid-chance-clean
+_python_pkg := covid_chance
+_executable := covid-chance
+_executable_clean := covid-chance-clean
 
-.PHONY: download-feeds create-tweets post-tweets clean-tweets setup setup-dev test lint tox reformat help
+data_path := $(HOME)/.cache/covid-chance/data
+config_path := $(HOME)/.config/covid-chance/config.json
+secrets_path := $(HOME)/.config/covid-chance/secrets.json
+
+.PHONY: download-feeds create-tweets post-tweets post-one-tweet clean-tweets search-websites setup setup-dev test lint tox reformat help
 
 download-feeds:  ## Download pages from feeds
 	"./$(_executable)" python -m "$(_python_pkg).download_feeds" \
-		--verbose \
-		--data-path "$(HOME)/.cache/covid-chance/data" \
-		--config "$(HOME)/.config/covid-chance/config.json"
+		-v --data "$(data_path)" --config "$(config_path)"
 
 create-tweets:  ## Create tweets from downloaded pages
 	"./$(_executable)" python -m "$(_python_pkg).create_tweets" \
-		--verbose \
-		--data-path "$(HOME)/.cache/covid-chance/data" \
-		--config "$(HOME)/.config/covid-chance/config.json"
+		-v --data "$(data_path)" --config "$(config_path)"
 
 review-tweets:  ## Review created tweets
 	"./$(_executable)" python -m "$(_python_pkg).review_tweets" \
-		--verbose \
-		--data-path "$(HOME)/.cache/covid-chance/data" \
-		--config "$(HOME)/.config/covid-chance/config.json"
+		-v --data "$(data_path)" --config "$(config_path)"
 
 post-tweets:  ## Post reviewed tweets
 	"./$(_executable)" python -m "$(_python_pkg).post_tweets" \
-		--verbose \
-		--data-path "$(HOME)/.cache/covid-chance/data" \
-		--secrets "$(HOME)/.config/covid-chance/secrets.json"
+		-v --data "$(data_path)" --secrets "$(secrets_path)"
 
-post-single-tweet:  ## Post a single random tweet
+post-one-tweet:  ## Post a single random tweet
 	"./$(_executable)" python -m "$(_python_pkg).post_tweets" \
-		--verbose \
-		--single \
-		--data-path "$(HOME)/.cache/covid-chance/data" \
+		-v --data "$(data_path)" --secrets "$(secrets_path)" --one
 
 clean-tweets:  ## Remove created tweets
 	"./$(_executable)" python -m "$(_python_pkg).clean_tweets" \
-		--verbose \
-		--data-path "$(HOME)/.cache/covid-chance/data" \
-		--config "$(HOME)/.config/covid-chance/config.json"
+		-v --data "$(data_path)" --config "$(config_path)"
+
+search-websites:  ## Search for website names using DuckDuckGo
+	jq -r '.feeds[].name' "$(config_path)" | \
+		xargs -n1 -I{} xdg-open "https://duckduckgo.com/?q={}"
 
 setup:  ## Create Pipenv virtual environment and install dependencies.
 	pipenv --three --site-packages

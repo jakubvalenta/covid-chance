@@ -39,11 +39,9 @@ def print_tweet(
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--data', help='Data path', default='./data')
     parser.add_argument(
-        '-d', '--data-path', help='Data path', default='./data'
-    )
-    parser.add_argument(
-        '-c', '--config-path', help='Configuration file path', required=True
+        '-c', '--config', help='Configuration file path', required=True
     )
     parser.add_argument(
         '-v', '--verbose', action='store_true', help='Enable debugging output'
@@ -53,10 +51,10 @@ def main():
         logging.basicConfig(
             stream=sys.stderr, level=logging.INFO, format='%(message)s'
         )
-    with open(args.config_path, 'r') as f:
+    with open(args.config, 'r') as f:
         config = json.load(f)
-    all_tweets = CreateTweets.read_all_tweets(args.data_path, config['feeds'])
-    reviewed_tweets = TweetList(get_reviewed_tweets_path(args.data_path))
+    all_tweets = CreateTweets.read_all_tweets(args.data, config['feeds'])
+    reviewed_tweets = TweetList(get_reviewed_tweets_path(args.data))
     pending_tweets: List[Dict[str, str]] = []
     for tweet in all_tweets:
         if not tweet['tweet']:

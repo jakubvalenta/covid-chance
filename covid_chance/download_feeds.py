@@ -294,11 +294,9 @@ class DownloadFeeds(luigi.Task):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--data', help='Data path', default='./data')
     parser.add_argument(
-        '-d', '--data-path', help='Data path', default='./data'
-    )
-    parser.add_argument(
-        '-c', '--config-path', help='Configuration file path', required=True
+        '-c', '--config', help='Configuration file path', required=True
     )
     parser.add_argument(
         '-v', '--verbose', action='store_true', help='Enable debugging output'
@@ -308,10 +306,10 @@ def main():
         logging.basicConfig(
             stream=sys.stderr, level=logging.INFO, format='%(message)s'
         )
-    with open(args.config_path, 'r') as f:
+    with open(args.config, 'r') as f:
         config = json.load(f)
     luigi.build(
-        [DownloadFeeds(data_path=args.data_path, feeds=config['feeds'])],
+        [DownloadFeeds(data_path=args.data, feeds=config['feeds'])],
         workers=2,
         local_scheduler=True,
         log_level='INFO',

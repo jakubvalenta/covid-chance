@@ -42,9 +42,7 @@ def post_tweet(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-d', '--data-path', help='Data path', default='./data'
-    )
+    parser.add_argument('-d', '--data', help='Data path', default='./data')
     parser.add_argument(
         '-s', '--secrets', help='Secrets file path', required=True
     )
@@ -64,8 +62,8 @@ def main():
         )
     with open(args.secrets, 'r') as f:
         secrets = json.load(f)
-    reviewed_tweets = TweetList(get_reviewed_tweets_path(args.data_path))
-    posted_tweets = TweetList(get_posted_tweets_path(args.data_path))
+    reviewed_tweets = TweetList(get_reviewed_tweets_path(args.data))
+    posted_tweets = TweetList(get_posted_tweets_path(args.data))
     pending_tweets: List[Dict[str, str]] = []
     for tweet in reviewed_tweets:
         if not tweet['status'] == REVIEW_STATUS_APPROVED:
