@@ -22,6 +22,7 @@ def csv_cache(path: Path) -> Callable:
                 return out
             func(*args, **kwargs)
             out = func(*args, **kwargs)
+            path.parent.mkdir(parents=True, exist_ok=True)
             with path.open('w') as f:
                 writer = csv.writer(f, lineterminator='\n')
                 writer.writerows(out)
