@@ -21,13 +21,15 @@ def get_reviewed_tweets_path(data_path: str) -> Path:
 
 def print_tweet(
     tweet: Dict[str, str],
+    i: int,
+    total: int,
     status: str,
-    status_width: int = 10,
+    status_width: int = 16,
     separator_width: int = 20,
     line_width: int = 80,
 ):
     print('-' * separator_width)
-    print(status.upper().ljust(status_width) + tweet['tweet'])
+    print(f'{i}/{total} {status.upper()}'.ljust(status_width) + tweet['tweet'])
     print()
     print(
         indent(
@@ -56,22 +58,23 @@ def main():
     all_tweets = CreateTweets.read_all_tweets(args.data, config['feeds'])
     reviewed_tweets = TweetList(get_reviewed_tweets_path(args.data))
     pending_tweets: List[Dict[str, str]] = []
-    for tweet in all_tweets:
+    for i, tweet in enumerate(all_tweets):
         if not tweet['tweet']:
             continue
         reviewed_tweet = reviewed_tweets.find(tweet)
         if reviewed_tweet:
-            print_tweet(reviewed_tweet, reviewed_tweet['status'])
+            print_tweet(reviewed_tweet, i + 1, '', reviewed_tweet['status'])
             continue
         pending_tweets.append(tweet)
     if not pending_tweets:
         logger.warning('Nothing to do, all tweets have already been reviewed')
         return
-    for tweet in pending_tweets:
+    total_pending_tweets = len(pending_tweets)
+    for i, tweet in enumerate(pending_tweets):
         if tweet in reviewed_tweets:
-            print_tweet(tweet, 'reviewed')
+            print_tweet(tweet, i + 1, total_pending_tweets, 'reviewed')
             continue
-        print_tweet(tweet, 'review')
+        print_tweet(tweet, i + 1, total_pending_tweets, 'review')
         inp = None
         while inp is None or (inp not in ('y', 'n', 'e', 'q', 's', '')):
             inp = input(
