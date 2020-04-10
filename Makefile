@@ -33,8 +33,8 @@ clean-tweets:  ## Remove created tweets
 		-v --data "$(data_path)" --config "$(config_path)"
 
 search-websites:  ## Search for website names using DuckDuckGo
-	jq -r '.feeds[].name' "$(config_path)" | \
-		xargs -n1 -I{} xdg-open "https://duckduckgo.com/?q={}"
+	jq --nul-output '.feeds[].name' "$(config_path)" | \
+		xargs -0 -I{} xdg-open "https://duckduckgo.com/?q={}"
 
 setup:  ## Create Pipenv virtual environment and install dependencies.
 	pipenv --three --site-packages
