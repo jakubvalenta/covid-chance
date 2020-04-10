@@ -109,8 +109,9 @@ class CreateTweets(luigi.Task):
                 page_tweets_path = CreatePageTweets.get_output_path(
                     data_path, feed['name'], page_url
                 )
-                with page_tweets_path.open('r') as f:
-                    yield from read_csv_dict(f)
+                if page_tweets_path.is_file():
+                    with page_tweets_path.open('r') as f:
+                        yield from read_csv_dict(f)
 
     def requires(self):
         for feed in self.feeds:
