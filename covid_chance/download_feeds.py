@@ -279,13 +279,16 @@ class DownloadFeeds(luigi.Task):
         )
 
     def requires(self):
-        for feed in self.feeds:
-            yield DownloadFeedPages(
+        return (
+            DownloadFeedPages(
                 data_path=self.data_path,
                 feed_name=feed['name'],
                 feed_url=feed['url'],
                 date_second=self.date_second,
             )
+            for feed in self.feeds
+            if feed.get('name') and feed.get('url')
+        )
 
     def run(self):
         with self.output().open('w') as f:
