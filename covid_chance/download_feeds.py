@@ -256,6 +256,8 @@ class DownloadFeedPages(luigi.Task):
     ) -> List[str]:
         @csv_cache(cls.get_feed_path(data_path, feed_name, date_second))
         def download_feed_with_cache():
+            if not feed_url:
+                return []
             page_urls = download_feed(feed_url)
             return [(page_url,) for page_url in page_urls]
 
@@ -302,7 +304,7 @@ class DownloadFeeds(luigi.Task):
                 date_second=self.date_second,
             )
             for feed in self.feeds
-            if feed.get('name') and feed.get('url')
+            if feed.get('name')
         )
 
     def run(self):
