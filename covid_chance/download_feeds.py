@@ -4,9 +4,9 @@ import json
 import logging
 import re
 import sys
+import urllib.parse
 from pathlib import Path
 from typing import Iterator, List, Sequence, Type
-from urllib.parse import urlsplit, urlunsplit
 
 import feedparser
 import luigi
@@ -21,9 +21,24 @@ from covid_chance.file_utils import csv_cache, safe_filename
 logger = logging.getLogger(__name__)
 
 
+def clean_url(
+    url: str,
+    remove_keys: Sequence[str] = ('utm_source', 'utm_medium', 'utm_campaign'),
+) -> str:
+    u = urllib.parse.urlsplit(url)
+    qs = urllib.parse.parse_qs(u.query)
+    for k in remove_keys:
+        if k in qs:
+            del qs[k]
+    new_query = urllib.parse.urlencode(qs, doseq=True)
+    return urllib.parse.urlunsplit(
+        (u.scheme, u.netloc, u.path, new_query, u.fragment)
+    )
+
+
 def simplify_url(url: str) -> str:
-    u = urlsplit(url)
-    return urlunsplit(('', u.netloc, u.path, u.query, ''))
+    u = urllib.parse.urlsplit(url)
+    return urllib.parse.urlunsplit(('', u.netloc, u.path, u.query, ''))
 
 
 def download_page(url: str) -> str:
@@ -36,7 +51,7 @@ def download_page(url: str) -> str:
 def download_feed(url: str) -> List[str]:
     logger.info('Downloading feed %s', url)
     feed = feedparser.parse(url)
-    return [entry.link for entry in feed.entries]
+    return [clean_url(entry.link) for entry in feed.entries]
 
 
 def get_element_text(
