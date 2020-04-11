@@ -20,7 +20,6 @@ def csv_cache(path: Path) -> Callable:
                 with path.open('r') as f:
                     out = list(csv.reader(f))
                 return out
-            func(*args, **kwargs)
             out = func(*args, **kwargs)
             path.parent.mkdir(parents=True, exist_ok=True)
             with path.open('w') as f:
