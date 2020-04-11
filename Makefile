@@ -6,7 +6,7 @@ data_path := $(HOME)/.cache/covid-chance/data
 config_path := $(HOME)/.config/covid-chance/config.json
 secrets_path := $(HOME)/.config/covid-chance/secrets.json
 
-.PHONY: download-feeds create-tweets post-tweets post-one-tweet clean-tweets search-websites setup setup-dev test lint tox reformat help
+.PHONY: download-feeds create-tweets post-tweets post-one-tweet clean-tweets clean-data search-websites setup setup-dev test lint tox reformat help
 
 download-feeds:  ## Download pages from feeds
 	"./$(_executable)" python -m "$(_python_pkg).download_feeds" \
@@ -30,6 +30,10 @@ post-one-tweet:  ## Post a single random tweet
 
 clean-tweets:  ## Remove created tweets
 	"./$(_executable)" python -m "$(_python_pkg).clean_tweets" \
+		-v --data "$(data_path)" --config "$(config_path)"
+
+clean-data:  ## Rename data files to match current naming scheme
+	"./$(_executable)" python -m "$(_python_pkg).clean_data" \
 		-v --data "$(data_path)" --config "$(config_path)"
 
 search-websites:  ## Search for website names using DuckDuckGo
