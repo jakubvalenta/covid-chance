@@ -4,7 +4,7 @@ import logging
 import sys
 from pathlib import Path
 from textwrap import fill, indent
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from covid_chance.create_tweets import CreateTweets
 from covid_chance.tweet_list import TweetList
@@ -21,19 +21,26 @@ def get_reviewed_tweets_path(data_path: str) -> Path:
 
 def print_tweet(
     tweet: Dict[str, str],
-    i: int,
-    total: int,
     status: str,
-    status_width: int = 16,
+    i: Optional[int] = None,
+    total: Optional[int] = None,
+    counter_width: int = 7,
+    status_width: int = 10,
     separator_width: int = 20,
     line_width: int = 80,
 ):
     print('-' * separator_width)
-    print(f'{i}/{total} {status.upper()}'.ljust(status_width) + tweet['tweet'])
+    counter = '/'.join(
+        str(num) for num in (i, total) if num is not None
+    ).ljust(counter_width)
+    status = status.upper().ljust(status_width)
+    text = tweet['tweet']
+    print(''.join([counter, status, text]))
     print()
     print(
         indent(
-            fill(tweet['line'], line_width - status_width), ' ' * status_width
+            fill(tweet['line'], line_width - status_width),
+            ' ' * (counter_width + status_width),
         )
     )
     print()
@@ -58,12 +65,12 @@ def main():
     all_tweets = CreateTweets.read_all_tweets(args.data, config['feeds'])
     reviewed_tweets = TweetList(get_reviewed_tweets_path(args.data))
     pending_tweets: List[Dict[str, str]] = []
-    for i, tweet in enumerate(all_tweets):
+    for tweet in all_tweets:
         if not tweet['tweet']:
             continue
         reviewed_tweet = reviewed_tweets.find(tweet)
         if reviewed_tweet:
-            print_tweet(reviewed_tweet, i + 1, '', reviewed_tweet['status'])
+            print_tweet(reviewed_tweet, reviewed_tweet['status'])
             continue
         pending_tweets.append(tweet)
     if not pending_tweets:
@@ -72,9 +79,9 @@ def main():
     total_pending_tweets = len(pending_tweets)
     for i, tweet in enumerate(pending_tweets):
         if tweet in reviewed_tweets:
-            print_tweet(tweet, i + 1, total_pending_tweets, 'reviewed')
+            print_tweet(tweet, 'reviewed', i=i + 1, total=total_pending_tweets)
             continue
-        print_tweet(tweet, i + 1, total_pending_tweets, 'review')
+        print_tweet(tweet, 'review', i=i + 1, total=total_pending_tweets)
         inp = None
         while inp is None or (inp not in ('y', 'n', 'e', 'q', 's', '')):
             inp = input(
