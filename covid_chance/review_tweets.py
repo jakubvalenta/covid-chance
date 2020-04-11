@@ -62,19 +62,44 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-    all_tweets = CreateTweets.read_all_tweets(args.data, config['feeds'])
+    all_tweets = list(CreateTweets.read_all_tweets(args.data, config['feeds']))
+    logger.warning(
+        'Number of text lines that match pattern: %d', len(all_tweets)
+    )
+    logger.warning(
+        'Number of all tweets:                    %d',
+        len([tweet for tweet in all_tweets if tweet['tweet']]),
+    )
     reviewed_tweets = TweetList(get_reviewed_tweets_path(args.data))
-    pending_tweets: List[Dict[str, str]] = []
-    for tweet in all_tweets:
-        if not tweet['tweet']:
-            continue
-        reviewed_tweet = reviewed_tweets.find(tweet)
-        if reviewed_tweet:
-            print_tweet(reviewed_tweet, reviewed_tweet['status'])
-            continue
-        pending_tweets.append(tweet)
+    logger.warning(
+        'Number of approved tweets:               %d',
+        len(
+            [
+                tweet
+                for tweet in reviewed_tweets
+                if tweet['status'] == REVIEW_STATUS_APPROVED
+            ]
+        ),
+    )
+    logger.warning(
+        'Number of rejected tweets:               %d',
+        len(
+            [
+                tweet
+                for tweet in reviewed_tweets
+                if tweet['status'] == REVIEW_STATUS_REJECTED
+            ]
+        ),
+    )
+    pending_tweets = [
+        tweet
+        for tweet in all_tweets
+        if tweet['tweet'] and not reviewed_tweets.find(tweet)
+    ]
+    logger.warning(
+        'Number of tweets to review:              %d', len(pending_tweets)
+    )
     if not pending_tweets:
-        logger.warning('Nothing to do, all tweets have already been reviewed')
         return
     total_pending_tweets = len(pending_tweets)
     for i, tweet in enumerate(pending_tweets):
