@@ -38,7 +38,8 @@ def clean_url(
 
 def simplify_url(url: str) -> str:
     u = urllib.parse.urlsplit(url)
-    return urllib.parse.urlunsplit(('', u.netloc, u.path, u.query, ''))
+    netloc = re.sub('^.+@', '', u.netloc)
+    return urllib.parse.urlunsplit(('', netloc, u.path, u.query, ''))
 
 
 def download_page(url: str) -> str:
