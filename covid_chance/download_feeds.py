@@ -13,7 +13,7 @@ import luigi
 import requests
 from bs4 import (
     BeautifulSoup, CData, Comment, Declaration, Doctype, NavigableString,
-    ProcessingInstruction,
+    ProcessingInstruction, Script, Stylesheet, TemplateString,
 )
 
 from covid_chance.file_utils import csv_cache, safe_filename
@@ -64,6 +64,9 @@ def get_element_text(
         Declaration,
         Doctype,
         ProcessingInstruction,
+        Script,
+        Stylesheet,
+        TemplateString,
     ),
     block_elements: Sequence[str] = (
         'address',
