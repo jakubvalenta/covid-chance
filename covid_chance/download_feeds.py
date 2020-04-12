@@ -13,8 +13,9 @@ import luigi
 import requests
 from bs4 import (
     BeautifulSoup, CData, Comment, Declaration, Doctype, NavigableString,
-    ProcessingInstruction, Script, Stylesheet, TemplateString,
+    ProcessingInstruction,
 )
+from bs4.element import Script, Stylesheet, TemplateString
 
 from covid_chance.file_utils import csv_cache, safe_filename
 
@@ -51,7 +52,11 @@ def download_page(url: str) -> str:
 
 def download_feed(url: str) -> List[str]:
     logger.info('Downloading feed %s', url)
-    feed = feedparser.parse(url)
+    # Fetch the feed content using requests, because feedparser seems to have
+    # some trouble with the Basic Auth, because the feed object contains an
+    # error.
+    r = requests.get(url)
+    feed = feedparser.parse(r.text)
     return [clean_url(entry.link) for entry in feed.entries]
 
 
