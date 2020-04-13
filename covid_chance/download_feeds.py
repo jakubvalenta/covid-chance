@@ -46,7 +46,15 @@ def simplify_url(url: str) -> str:
 
 def download_page(url: str) -> str:
     logger.info('Downloading page %s', url)
-    res = requests.get(url)
+    res = requests.get(
+        url,
+        headers={
+            'User-Agent': (
+                'Mozilla/5.0 (X11; Linux x86_64; rv:75.0) '
+                'Gecko/20100101 Firefox/75.0'
+            )
+        },
+    )
     res.raise_for_status()
     return res.text
 
