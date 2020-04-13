@@ -59,7 +59,7 @@ class DownloadArchivedFeeds(luigi.Task):
                 ):
                     continue
                 logger.info(
-                    'Found archive feed URL %s',
+                    'Found archive feed URL %s %s',
                     archived_feed['timestamp'].isoformat(),
                     archived_feed['url'],
                 )

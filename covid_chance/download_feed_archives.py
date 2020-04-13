@@ -40,7 +40,7 @@ def find_closest_snapshot_url(url: str, date: datetime.date) -> Optional[str]:
     if not snapshot_url:
         raise ArchiveError('Failed to find snapshot URL')
     if 'http://none' in snapshot_url:
-        logger.warn('Empty snapshot URL returned', snapshot_url)
+        logger.warn('Empty snapshot URL returned %s', snapshot_url)
         return None
     logger.info(
         'Closest snapshot URL for %s %s is %s', url, date, snapshot_url
