@@ -4,12 +4,12 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Iterator, List
+from typing import Iterator
 
 import luigi
 
 from covid_chance.download_feeds import DownloadFeedPages
-from covid_chance.file_utils import read_csv_dict, safe_filename
+from covid_chance.file_utils import safe_filename
 
 logger = logging.getLogger(__name__)
 
@@ -32,39 +32,38 @@ class DownloadArchivedFeeds(luigi.Task):
         )
 
     @staticmethod
-    def get_archives(data_path: str, feed_name: str) -> Iterator[List[dict]]:
-        for archive_path in (Path(data_path) / safe_filename(feed_name)).glob(
-            'feed_archive*.csv'
+    def get_archived_feeds(data_path: str, feed_name: str) -> Iterator[dict]:
+        for p in (Path(data_path) / safe_filename(feed_name)).glob(
+            'feed_archived*.json'
         ):
-            with archive_path.open('r') as f:
-                archive = [
-                    {
-                        'timestamp': datetime.datetime.fromisoformat(
-                            row['timestamp']
-                        ),
-                        'url': row['url'],
-                    }
-                    for row in read_csv_dict(f)
-                ]
-            yield archive
+            with p.open('r') as f:
+                data = json.load(f)
+                archived_feed = {
+                    'timestamp': datetime.datetime.fromisoformat(
+                        data['timestamp']
+                    ),
+                    'url': data['url'],
+                }
+            yield archived_feed
 
     def requires(self):
         for feed in self.feeds:
             if not feed.get('name'):
                 continue
-            for archive in self.get_archives(self.data_path, feed['name']):
-                for archived_feed in archive:
-                    logger.info(
-                        'Found archive feed %s %s',
-                        archived_feed['timestamp'],
-                        archived_feed['url'],
-                    )
-                    yield DownloadFeedPages(
-                        data_path=self.data_path,
-                        feed_name=feed['name'],
-                        feed_url=archived_feed['url'],
-                        date_second=archived_feed['timestamp'],
-                    )
+            for archived_feed in self.get_archived_feeds(
+                self.data_path, feed['name']
+            ):
+                logger.info(
+                    'Found archive feed URL %s',
+                    archived_feed['timestamp'],
+                    archived_feed['url'],
+                )
+                yield DownloadFeedPages(
+                    data_path=self.data_path,
+                    feed_name=feed['name'],
+                    feed_url=archived_feed['url'],
+                    date_second=archived_feed['timestamp'],
+                )
 
     def run(self):
         with self.output().open('w') as f:
