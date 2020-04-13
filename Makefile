@@ -4,13 +4,18 @@ _executable_clean := covid-chance-clean
 
 data_path := $(HOME)/.cache/covid-chance/data
 config_path := $(HOME)/.config/covid-chance/config.json
+config_simple_path := $(HOME)/.config/covid-chance/config-simple.json
 secrets_path := $(HOME)/.config/covid-chance/secrets.json
 
-.PHONY: download-feeds download-archived-feeds create-tweets post-tweets post-one-tweet clean-tweets clean-data search-websites setup setup-dev test lint tox reformat help
+.PHONY: download-feeds download-feed-archives download-archived-feeds create-tweets post-tweets post-one-tweet clean-tweets clean-data search-websites setup setup-dev test lint tox reformat help
 
 download-feeds:  ## Download pages from feeds
 	"./$(_executable)" python -m "$(_python_pkg).download_feeds" \
 		-v --data "$(data_path)" --config "$(config_path)"
+
+download-feed-archives:  ## Download feeds from the Internet Archive
+	"./$(_executable)" python -m "$(_python_pkg).download_feed_archives" \
+		-v --data "$(data_path)" --config "$(config_simple_path)" --date 2020-03-20
 
 download-archived-feeds:  ## Download pages from those feeds that were retrieved from the Internet Archive
 	"./$(_executable)" python -m "$(_python_pkg).download_archived_feeds" \
