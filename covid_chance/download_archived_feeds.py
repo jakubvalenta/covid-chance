@@ -53,9 +53,14 @@ class DownloadArchivedFeeds(luigi.Task):
             for archived_feed in self.get_archived_feeds(
                 self.data_path, feed['name']
             ):
+                if (
+                    not archived_feed['url']
+                    or 'http://none' in archived_feed['url']
+                ):
+                    continue
                 logger.info(
                     'Found archive feed URL %s',
-                    archived_feed['timestamp'],
+                    archived_feed['timestamp'].isoformat(),
                     archived_feed['url'],
                 )
                 yield DownloadFeedPages(
