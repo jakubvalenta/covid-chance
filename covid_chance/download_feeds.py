@@ -1,4 +1,5 @@
 import argparse
+import csv
 import datetime
 import json
 import logging
@@ -17,7 +18,7 @@ from bs4 import (
 )
 from bs4.element import Script, Stylesheet, TemplateString
 
-from covid_chance.file_utils import csv_cache, safe_filename
+from covid_chance.file_utils import csv_cache, read_csv_dict, safe_filename
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +249,14 @@ class DownloadFeedPages(luigi.Task):
             / f'feed_pages-{date_second.isoformat()}.csv'
         )
 
+    @staticmethod
+    def get_feed_manual_path(data_path: str, feed_name: str) -> Path:
+        return (
+            Path(data_path)
+            / safe_filename(feed_name)
+            / f'feed_pages_manual.csv'
+        )
+
     def output(self):
         return luigi.LocalTarget(
             self.get_output_path(
@@ -263,6 +272,13 @@ class DownloadFeedPages(luigi.Task):
         feed_url: str,
         date_second: datetime.datetime,
     ) -> List[str]:
+        feed_manual_path = cls.get_feed_manual_path(data_path, feed_name)
+        if feed_manual_path.is_file():
+            with feed_manual_path.open('r') as f:
+                manual_page_urls = [row[0] for row in csv.reader(f)]
+        else:
+            manual_page_urls = []
+
         @csv_cache(cls.get_feed_path(data_path, feed_name, date_second))
         def download_feed_with_cache():
             if not feed_url:
@@ -270,7 +286,9 @@ class DownloadFeedPages(luigi.Task):
             page_urls = download_feed(feed_url)
             return [(page_url,) for page_url in page_urls]
 
-        return [row[0] for row in download_feed_with_cache()]
+        downloaded_page_urls = [row[0] for row in download_feed_with_cache()]
+
+        return manual_page_urls + downloaded_page_urls
 
     def requires(self):
         page_urls = self.download_feed(
