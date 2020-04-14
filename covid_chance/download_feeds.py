@@ -18,7 +18,7 @@ from bs4 import (
 )
 from bs4.element import Script, Stylesheet, TemplateString
 
-from covid_chance.file_utils import csv_cache, read_csv_dict, safe_filename
+from covid_chance.file_utils import csv_cache, safe_filename
 
 logger = logging.getLogger(__name__)
 

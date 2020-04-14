@@ -4,7 +4,7 @@ import logging
 import sys
 from pathlib import Path
 from textwrap import fill, indent
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from covid_chance.create_tweets import CreateTweets
 from covid_chance.tweet_list import TweetList
@@ -63,15 +63,13 @@ def main():
     with open(args.config, 'r') as f:
         config = json.load(f)
     all_tweets = list(CreateTweets.read_all_tweets(args.data, config['feeds']))
-    logger.warning(
-        'Number of text lines that match pattern: %d', len(all_tweets)
-    )
-    logger.warning(
+    logger.info('Number of text lines that match pattern: %d', len(all_tweets))
+    logger.info(
         'Number of all tweets:                    %d',
         len([tweet for tweet in all_tweets if tweet['tweet']]),
     )
     reviewed_tweets = TweetList(get_reviewed_tweets_path(args.data))
-    logger.warning(
+    logger.info(
         'Number of approved tweets:               %d',
         len(
             [
@@ -81,7 +79,7 @@ def main():
             ]
         ),
     )
-    logger.warning(
+    logger.info(
         'Number of rejected tweets:               %d',
         len(
             [
@@ -96,7 +94,7 @@ def main():
         for tweet in all_tweets
         if tweet['tweet'] and not reviewed_tweets.find(tweet)
     ]
-    logger.warning(
+    logger.info(
         'Number of tweets to review:              %d', len(pending_tweets)
     )
     if not pending_tweets:
