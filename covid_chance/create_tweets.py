@@ -158,9 +158,9 @@ def main():
                 tweet_template=config['tweet_template'],
             )
         ],
-        workers=2,
+        workers=6,
         local_scheduler=True,
-        log_level='INFO',
+        log_level='WARNING',
     )
 
 

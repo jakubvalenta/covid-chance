@@ -93,7 +93,7 @@ def main():
         config = json.load(f)
     luigi.build(
         [DownloadArchivedFeeds(data_path=args.data, feeds=config['feeds'])],
-        workers=2,
+        workers=1,
         local_scheduler=True,
         log_level='INFO',
     )

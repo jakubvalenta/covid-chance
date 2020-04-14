@@ -137,7 +137,7 @@ def main():
                 date=datetime.date.fromisoformat(args.date),
             )
         ],
-        workers=2,
+        workers=1,
         local_scheduler=True,
         log_level='INFO',
     )
