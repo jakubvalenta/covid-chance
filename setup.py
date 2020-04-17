@@ -25,6 +25,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         'beautifulsoup4',
+        'colored',
         'feedparser',
         'luigi',
         'lxml',

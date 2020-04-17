@@ -6,6 +6,9 @@ from pathlib import Path
 from textwrap import fill, indent
 from typing import Dict, Optional
 
+import colored
+import regex
+
 from covid_chance.create_tweets import CreateTweets
 from covid_chance.tweet_list import TweetList
 
@@ -13,6 +16,12 @@ logger = logging.getLogger(__name__)
 
 REVIEW_STATUS_APPROVED = 'approved'
 REVIEW_STATUS_REJECTED = 'rejected'
+
+
+def highlight_substr(s: str, substr: str, fg_color: int = 2) -> str:
+    fg = colored.fg(fg_color)
+    reset = colored.attr(0)
+    return s.replace(substr, rf'{fg}{substr}{reset}')
 
 
 def get_reviewed_tweets_path(data_path: str) -> Path:
@@ -24,6 +33,7 @@ def print_tweet(
     status: str,
     i: Optional[int] = None,
     total: Optional[int] = None,
+    highlight: bool = False,
     counter_width: int = 7,
     status_width: int = 10,
     separator_width: int = 20,
@@ -37,9 +47,13 @@ def print_tweet(
     text = tweet['tweet']
     print(''.join([counter, status, text]))
     print()
+    if highlight:
+        s = highlight_substr(tweet['line'], tweet['parsed'])
+    else:
+        s = tweet['line']
     print(
         indent(
-            fill(tweet['line'], line_width - status_width),
+            fill(s, line_width - status_width),
             ' ' * (counter_width + status_width),
         )
     )
@@ -104,7 +118,13 @@ def main():
         if tweet in reviewed_tweets:
             print_tweet(tweet, 'reviewed', i=i + 1, total=total_pending_tweets)
             continue
-        print_tweet(tweet, 'review', i=i + 1, total=total_pending_tweets)
+        print_tweet(
+            tweet,
+            'review',
+            i=i + 1,
+            total=total_pending_tweets,
+            highlight=True,
+        )
         inp = None
         while inp is None or (inp not in ('y', 'n', 'e', 'q', 's', '')):
             inp = input(
