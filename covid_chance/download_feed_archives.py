@@ -98,14 +98,13 @@ class DownloadFeedArchives(luigi.Task):
 
     def requires(self):
         for feed in self.feeds:
-            if not feed.get('name'):
-                continue
-            yield DownloadFeedArchive(
-                data_path=self.data_path,
-                feed_name=feed['name'],
-                feed_url=feed['url'],
-                date=self.date,
-            )
+            if feed.get('name') and feed.get('url'):
+                yield DownloadFeedArchive(
+                    data_path=self.data_path,
+                    feed_name=feed['name'],
+                    feed_url=feed['url'],
+                    date=self.date,
+                )
 
     def run(self):
         with self.output().open('w') as f:
