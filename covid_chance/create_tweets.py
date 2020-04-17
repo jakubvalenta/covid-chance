@@ -23,17 +23,22 @@ def filter_lines(f: IO, match_line: Sequence[Sequence[str]]) -> Iterator[str]:
     return (line.strip() for line in f if all(r.search(line) for r in regexes))
 
 
+def searchall(rx: regex.Regex, s: str) -> Iterator:
+    m = rx.search(s)
+    while m:
+        yield m
+        m = rx.search(s, pos=m.span()[1])
+
+
 def parse_lines(
     lines: Iterable[str], pattern: str
 ) -> Iterator[Tuple[str, str]]:
-    r = regex.compile(pattern)
+    rx = regex.compile(pattern)
     for line in lines:
-        m = r.search(line)
-        if m:
-            while m:
-                parsed = m.group('parsed')
-                yield line, parsed
-                m = r.search(line, pos=m.span()[1])
+        matches = list(searchall(rx, line))
+        if matches:
+            for m in matches:
+                yield (line, m.group('parsed'))
         else:
             yield line, ''
 
