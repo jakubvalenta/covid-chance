@@ -30,10 +30,12 @@ def parse_lines(
     for line in lines:
         m = r.search(line)
         if m:
-            parsed = m.group('parsed')
+            while m:
+                parsed = m.group('parsed')
+                yield line, parsed
+                m = r.search(line, pos=m.span()[1])
         else:
-            parsed = ''
-        yield line, parsed
+            yield line, ''
 
 
 class CreatePageTweets(luigi.Task):
