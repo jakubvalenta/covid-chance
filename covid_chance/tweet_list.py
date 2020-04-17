@@ -23,10 +23,7 @@ class TweetList(list):
 
     def find(self, tweet) -> Optional[Dict[str, str]]:
         for existing_tweet in self:
-            if (
-                existing_tweet['url'] == tweet['url']
-                or existing_tweet['parsed'] == tweet['parsed']
-            ):
+            if existing_tweet['parsed'] == tweet['parsed']:
                 return existing_tweet
         return None
 
