@@ -7,7 +7,6 @@ from textwrap import fill, indent
 from typing import Dict, Optional
 
 import colored
-import regex
 
 from covid_chance.create_tweets import CreateTweets
 from covid_chance.tweet_list import TweetList

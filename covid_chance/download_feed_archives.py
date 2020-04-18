@@ -111,13 +111,45 @@ class DownloadFeedArchives(luigi.Task):
             f.write('')
 
 
+class DownloadFeedsArchives(luigi.Task):
+    data_path = luigi.Parameter()
+    feeds = luigi.ListParameter()
+    dates = luigi.ListParameter()
+    date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
+
+    @staticmethod
+    def get_output_path(data_path: str, date_second: datetime.date) -> Path:
+        return (
+            Path(data_path)
+            / f'all_feeds_archives_downloaded-{date_second.isoformat()}.txt'
+        )
+
+    def output(self):
+        return luigi.LocalTarget(
+            self.get_output_path(self.data_path, self.date_second)
+        )
+
+    def requires(self):
+        return (
+            DownloadFeedArchives(
+                data_path=self.data_path,
+                feeds=self.feeds,
+                date=datetime.date.fromisoformat(date_str),
+            )
+            for date_str in self.dates
+        )
+
+    def run(self):
+        with self.output().open('w') as f:
+            f.write('')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--data', help='Data path', default='./data')
     parser.add_argument(
         '-c', '--config', help='Configuration file path', required=True
     )
-    parser.add_argument('--date', help='Date', required=True)
     parser.add_argument(
         '-v', '--verbose', action='store_true', help='Enable debugging output'
     )
@@ -130,10 +162,10 @@ def main():
         config = json.load(f)
     luigi.build(
         [
-            DownloadFeedArchives(
+            DownloadFeedsArchives(
                 data_path=args.data,
                 feeds=config['feeds'],
-                date=datetime.date.fromisoformat(args.date),
+                dates=config['archive_dates'],
             )
         ],
         workers=1,

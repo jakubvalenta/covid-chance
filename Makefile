@@ -14,7 +14,7 @@ download-feeds:  ## Download pages from feeds
 
 download-feed-archives:  ## Download feeds from the Internet Archive
 	"./$(_executable)" python -m "$(_python_pkg).download_feed_archives" \
-		-v --data "$(data_path)" --config "$(config_path)" --date 2020-03-20
+		-v --data "$(data_path)" --config "$(config_path)"
 
 download-archived-feeds:  ## Download pages from those feeds that were retrieved from the Internet Archive
 	"./$(_executable)" python -m "$(_python_pkg).download_archived_feeds" \
@@ -22,7 +22,7 @@ download-archived-feeds:  ## Download pages from those feeds that were retrieved
 
 create-tweets:  ## Create tweets from downloaded pages
 	"./$(_executable)" python -m "$(_python_pkg).create_tweets" \
-		-v --data "$(data_path)" --config "$(config_path)"
+		--data "$(data_path)" --config "$(config_path)"
 
 review-tweets:  ## Review created tweets
 	"./$(_executable)" python -m "$(_python_pkg).review_tweets" \
