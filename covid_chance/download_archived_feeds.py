@@ -19,6 +19,12 @@ class DownloadArchivedFeeds(luigi.WrapperTask):
     feeds = luigi.ListParameter()
     date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
 
+    host = luigi.Parameter()
+    database = luigi.Parameter()
+    user = luigi.Parameter()
+    password = luigi.Parameter()
+    table = luigi.Parameter()
+
     @staticmethod
     def get_archived_feeds(data_path: str, feed_name: str) -> Iterator[dict]:
         for p in (Path(data_path) / safe_filename(feed_name)).glob(
@@ -56,6 +62,11 @@ class DownloadArchivedFeeds(luigi.WrapperTask):
                     feed_name=feed['name'],
                     feed_url=archived_feed['url'],
                     date_second=archived_feed['timestamp'],
+                    host=self.host,
+                    database=self.database,
+                    user=self.user,
+                    password=self.password,
+                    table=self.table,
                 )
 
 
@@ -76,9 +87,20 @@ def main():
     with open(args.config, 'r') as f:
         config = json.load(f)
     luigi.build(
-        [DownloadArchivedFeeds(data_path=args.data, feeds=config['feeds'])],
+        [
+            DownloadArchivedFeeds(
+                data_path=args.data,
+                feeds=config['feeds'],
+                host=config['db']['host'],
+                database=config['db']['database'],
+                user=config['db']['user'],
+                password=config['db']['password'],
+                table=config['db']['table_pages'],
+            )
+        ],
         workers=1,
         local_scheduler=True,
+        parallel_scheduling=True,
         log_level='INFO',
     )
 
