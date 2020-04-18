@@ -1,12 +1,11 @@
 _python_pkg := covid_chance
 _executable := covid-chance
-_executable_clean := covid-chance-clean
 
-data_path := $(HOME)/.cache/covid-chance/data
-config_path := $(HOME)/.config/covid-chance/config.json
-secrets_path := $(HOME)/.config/covid-chance/secrets.json
+data_path ?= $(HOME)/.cache/covid-chance/data
+config_path ?= $(HOME)/.config/covid-chance/config.json
+secrets_path ?= $(HOME)/.config/covid-chance/secrets.json
 
-.PHONY: download-feeds download-feed-archives download-archived-feeds create-tweets post-tweets post-one-tweet clean-tweets clean-data search-websites setup setup-dev test lint tox reformat help
+.PHONY: download-feeds download-feed-archives download-archived-feeds create-tweets review-tweets post-tweets post-one-tweet clean-tweets clean-data search-websites setup setup-dev test lint tox reformat help
 
 download-feeds:  ## Download pages from feeds
 	"./$(_executable)" python -m "$(_python_pkg).download_feeds" \
