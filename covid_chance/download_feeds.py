@@ -55,6 +55,8 @@ def download_page(url: str) -> str:
             )
         },
     )
+    if res.status_code == requests.codes.not_found:
+        return ''
     res.raise_for_status()
     return res.text
 
