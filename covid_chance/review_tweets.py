@@ -18,9 +18,7 @@ REVIEW_STATUS_REJECTED = 'rejected'
 
 
 def highlight_substr(s: str, substr: str, fg_color: int = 2) -> str:
-    fg = colored.fg(fg_color)
-    reset = colored.attr(0)
-    return s.replace(substr, rf'{fg}{substr}{reset}')
+    return s.replace(substr, colored.stylize(substr, colored.fg(fg_color)))
 
 
 def get_reviewed_tweets_path(data_path: str) -> Path:
