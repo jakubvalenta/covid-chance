@@ -84,11 +84,6 @@ class DownloadFeedArchives(luigi.WrapperTask):
     feeds = luigi.ListParameter()
     date = luigi.DateParameter()
 
-    def output(self):
-        return luigi.LocalTarget(
-            self.get_output_path(self.data_path, self.date)
-        )
-
     def requires(self):
         for feed in self.feeds:
             if feed.get('name') and feed.get('url'):
@@ -143,6 +138,7 @@ def main():
         ],
         workers=1,
         local_scheduler=True,
+        parallel_scheduling=True,
         log_level='INFO',
     )
 
