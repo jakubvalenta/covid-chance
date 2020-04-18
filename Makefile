@@ -5,7 +5,7 @@ data_path ?= $(HOME)/.cache/covid-chance/data
 config_path ?= $(HOME)/.config/covid-chance/config.json
 secrets_path ?= $(HOME)/.config/covid-chance/secrets.json
 
-.PHONY: download-feeds download-feed-archives download-archived-feeds create-tweets review-tweets post-tweets post-one-tweet clean-tweets clean-data search-websites setup setup-dev test lint tox reformat help
+.PHONY: download-feeds download-feed-archives download-archived-feeds copy-pages-to-db create-tweets review-tweets post-tweets post-one-tweet clean-tweets clean-data search-websites setup setup-dev test lint tox reformat help
 
 download-feeds:  ## Download pages from feeds
 	"./$(_executable)" python -m "$(_python_pkg).download_feeds" \
@@ -19,7 +19,11 @@ download-archived-feeds:  ## Download pages from those feeds that were retrieved
 	"./$(_executable)" python -m "$(_python_pkg).download_archived_feeds" \
 		-v --data "$(data_path)" --config "$(config_path)"
 
-create-tweets:  ## Create tweets from downloaded pages
+copy-pages-to-db:  ## Copy downloaded pages into the database
+	"./$(_executable)" python -m "$(_python_pkg).copy_pages_to_db" \
+		-v --data "$(data_path)" --config "$(config_path)"
+
+create-tweets:  ## Create tweets from the pages stored in the database
 	"./$(_executable)" python -m "$(_python_pkg).create_tweets" \
 		--data "$(data_path)" --config "$(config_path)"
 
