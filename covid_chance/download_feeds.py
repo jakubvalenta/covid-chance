@@ -11,6 +11,7 @@ from typing import Iterator, List, Sequence, Type
 
 import feedparser
 import luigi
+import luigi.contrib.postgres
 import requests
 from bs4 import (
     BeautifulSoup, CData, Comment, Declaration, Doctype, NavigableString,
@@ -233,11 +234,47 @@ class DownloadPageText(luigi.Task):
             f.write(text)
 
 
+class SavePageText(luigi.contrib.postgres.CopyToTable):
+    data_path = luigi.Parameter()
+    feed_name = luigi.Parameter()
+    page_url = luigi.Parameter()
+
+    host = luigi.Parameter()
+    database = luigi.Parameter()
+    user = luigi.Parameter()
+    password = luigi.Parameter()
+    table = luigi.Parameter()
+
+    columns = [('url', 'TEXT'), ('text', 'TEXT')]
+
+    @property
+    def update_id(self):
+        return self.page_url
+
+    def requires(self):
+        return DownloadPageText(
+            data_path=self.data_path,
+            feed_name=self.feed_name,
+            page_url=self.page_url,
+        )
+
+    def rows(self):
+        with self.input().open('r') as f:
+            text = f.read()
+        yield (self.page_url, text)
+
+
 class DownloadFeedPages(luigi.WrapperTask):
     data_path = luigi.Parameter()
     feed_name = luigi.Parameter()
     feed_url = luigi.Parameter()
     date_second = luigi.DateSecondParameter()
+
+    host = luigi.Parameter()
+    database = luigi.Parameter()
+    user = luigi.Parameter()
+    password = luigi.Parameter()
+    table = luigi.Parameter()
 
     @staticmethod
     def get_feed_path(
@@ -288,10 +325,15 @@ class DownloadFeedPages(luigi.WrapperTask):
             self.data_path, self.feed_name, self.feed_url, self.date_second
         )
         for page_url in page_urls:
-            yield DownloadPageText(
+            yield SavePageText(
                 data_path=self.data_path,
                 feed_name=self.feed_name,
                 page_url=page_url,
+                host=self.host,
+                database=self.database,
+                user=self.user,
+                password=self.password,
+                table=self.table,
             )
 
 
@@ -300,6 +342,12 @@ class DownloadFeeds(luigi.WrapperTask):
     feeds = luigi.ListParameter()
     date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
 
+    host = luigi.Parameter()
+    database = luigi.Parameter()
+    user = luigi.Parameter()
+    password = luigi.Parameter()
+    table = luigi.Parameter()
+
     def requires(self):
         return (
             DownloadFeedPages(
@@ -307,6 +355,11 @@ class DownloadFeeds(luigi.WrapperTask):
                 feed_name=feed['name'],
                 feed_url=feed['url'],
                 date_second=self.date_second,
+                host=self.host,
+                database=self.database,
+                user=self.user,
+                password=self.password,
+                table=self.table,
             )
             for feed in self.feeds
             if feed.get('name')
@@ -330,7 +383,17 @@ def main():
     with open(args.config, 'r') as f:
         config = json.load(f)
     luigi.build(
-        [DownloadFeeds(data_path=args.data, feeds=config['feeds'])],
+        [
+            DownloadFeeds(
+                data_path=args.data,
+                feeds=config['feeds'],
+                host=config['db']['host'],
+                database=config['db']['database'],
+                user=config['db']['user'],
+                password=config['db']['password'],
+                table=config['db']['table_pages'],
+            )
+        ],
         workers=2,
         local_scheduler=True,
         log_level='INFO',

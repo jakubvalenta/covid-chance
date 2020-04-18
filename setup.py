@@ -29,6 +29,7 @@ setup(
         'feedparser',
         'luigi',
         'lxml',
+        'psycopg2',
         'python-twitter',
         'regex',
         'requests',
