@@ -394,8 +394,9 @@ def main():
                 table=config['db']['table_pages'],
             )
         ],
-        workers=2,
+        workers=1,
         local_scheduler=True,
+        parallel_scheduling=True,
         log_level='INFO',
     )
 
