@@ -14,22 +14,10 @@ from covid_chance.file_utils import safe_filename
 logger = logging.getLogger(__name__)
 
 
-class DownloadArchivedFeeds(luigi.Task):
+class DownloadArchivedFeeds(luigi.WrapperTask):
     data_path = luigi.Parameter()
     feeds = luigi.ListParameter()
     date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
-
-    @staticmethod
-    def get_output_path(data_path: str, date_second: datetime.date) -> Path:
-        return (
-            Path(data_path)
-            / f'archived_feeds_downloaded-{date_second.isoformat()}.txt'
-        )
-
-    def output(self):
-        return luigi.LocalTarget(
-            self.get_output_path(self.data_path, self.date_second)
-        )
 
     @staticmethod
     def get_archived_feeds(data_path: str, feed_name: str) -> Iterator[dict]:
@@ -69,10 +57,6 @@ class DownloadArchivedFeeds(luigi.Task):
                     feed_url=archived_feed['url'],
                     date_second=archived_feed['timestamp'],
                 )
-
-    def run(self):
-        with self.output().open('w') as f:
-            f.write('')
 
 
 def main():

@@ -93,7 +93,7 @@ class CreatePageTweets(luigi.Task):
             write_csv_dict(tweets, f)
 
 
-class CreateTweets(luigi.Task):
+class CreateTweets(luigi.WrapperTask):
     data_path = luigi.Parameter()
     feeds = luigi.ListParameter()
     match_line = luigi.ListParameter()
@@ -131,12 +131,6 @@ class CreateTweets(luigi.Task):
                     parse_pattern=self.parse_pattern,
                     tweet_template=self.tweet_template,
                 )
-
-    def run(self):
-        pass
-
-    def complete(self):
-        return False
 
 
 def main():

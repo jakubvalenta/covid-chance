@@ -79,17 +79,10 @@ class DownloadFeedArchive(luigi.Task):
             json.dump(data, f)
 
 
-class DownloadFeedArchives(luigi.Task):
+class DownloadFeedArchives(luigi.WrapperTask):
     data_path = luigi.Parameter()
     feeds = luigi.ListParameter()
     date = luigi.DateParameter()
-
-    @staticmethod
-    def get_output_path(data_path: str, date: datetime.date) -> Path:
-        return (
-            Path(data_path)
-            / f'feed_archives_downloaded-{date.isoformat()}.txt'
-        )
 
     def output(self):
         return luigi.LocalTarget(
@@ -106,28 +99,12 @@ class DownloadFeedArchives(luigi.Task):
                     date=self.date,
                 )
 
-    def run(self):
-        with self.output().open('w') as f:
-            f.write('')
 
-
-class DownloadFeedsArchives(luigi.Task):
+class DownloadFeedsArchives(luigi.WrapperTask):
     data_path = luigi.Parameter()
     feeds = luigi.ListParameter()
     dates = luigi.ListParameter()
     date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
-
-    @staticmethod
-    def get_output_path(data_path: str, date_second: datetime.date) -> Path:
-        return (
-            Path(data_path)
-            / f'all_feeds_archives_downloaded-{date_second.isoformat()}.txt'
-        )
-
-    def output(self):
-        return luigi.LocalTarget(
-            self.get_output_path(self.data_path, self.date_second)
-        )
 
     def requires(self):
         return (
@@ -138,10 +115,6 @@ class DownloadFeedsArchives(luigi.Task):
             )
             for date_str in self.dates
         )
-
-    def run(self):
-        with self.output().open('w') as f:
-            f.write('')
 
 
 def main():

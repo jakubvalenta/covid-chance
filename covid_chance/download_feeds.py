@@ -231,21 +231,11 @@ class DownloadPageText(luigi.Task):
             f.write(text)
 
 
-class DownloadFeedPages(luigi.Task):
+class DownloadFeedPages(luigi.WrapperTask):
     data_path = luigi.Parameter()
     feed_name = luigi.Parameter()
     feed_url = luigi.Parameter()
     date_second = luigi.DateSecondParameter()
-
-    @staticmethod
-    def get_output_path(
-        data_path: str, feed_name: str, date_second: datetime.date
-    ) -> Path:
-        return (
-            Path(data_path)
-            / safe_filename(feed_name)
-            / f'feed_downloaded-{date_second.isoformat()}.txt'
-        )
 
     @staticmethod
     def get_feed_path(
@@ -263,13 +253,6 @@ class DownloadFeedPages(luigi.Task):
             Path(data_path)
             / safe_filename(feed_name)
             / f'feed_pages_manual.csv'
-        )
-
-    def output(self):
-        return luigi.LocalTarget(
-            self.get_output_path(
-                self.data_path, self.feed_name, self.date_second
-            )
         )
 
     @classmethod
@@ -309,26 +292,11 @@ class DownloadFeedPages(luigi.Task):
                 page_url=page_url,
             )
 
-    def run(self):
-        with self.output().open('w') as f:
-            f.write('')
 
-
-class DownloadFeeds(luigi.Task):
+class DownloadFeeds(luigi.WrapperTask):
     data_path = luigi.Parameter()
     feeds = luigi.ListParameter()
     date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
-
-    @staticmethod
-    def get_output_path(data_path: str, date_second: datetime.date) -> Path:
-        return (
-            Path(data_path) / f'all_downloaded-{date_second.isoformat()}.txt'
-        )
-
-    def output(self):
-        return luigi.LocalTarget(
-            self.get_output_path(self.data_path, self.date_second)
-        )
 
     def requires(self):
         return (
@@ -341,10 +309,6 @@ class DownloadFeeds(luigi.Task):
             for feed in self.feeds
             if feed.get('name')
         )
-
-    def run(self):
-        with self.output().open('w') as f:
-            f.write('')
 
 
 def main():
