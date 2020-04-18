@@ -73,7 +73,14 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-    all_tweets = list(CreateTweets.read_all_tweets(args.data, config['feeds']))
+    all_tweets = list(
+        CreateTweets.read_all_tweets(
+            database=config['db']['database'],
+            user=config['db']['user'],
+            password=config['db']['password'],
+            table=config['db']['table_tweets'],
+        )
+    )
     logger.info('Number of text lines that match pattern: %d', len(all_tweets))
     logger.info(
         'Number of all tweets:                    %d',

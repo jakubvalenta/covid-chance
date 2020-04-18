@@ -2,20 +2,18 @@ import argparse
 import json
 import logging
 import sys
-from pathlib import Path
 from string import Template
-from typing import IO, Dict, Iterable, Iterator, List, Sequence, Tuple
+from typing import Dict, Iterable, Iterator, Sequence, Tuple
 
 import luigi
+import luigi.contrib.postgres
+import psycopg2
 import regex
 
-from covid_chance.download_feeds import DownloadPageText, simplify_url
-from covid_chance.file_utils import (
-    read_csv_dict, read_first_line, safe_filename, write_csv_dict,
-)
 
-
-def filter_lines(f: IO, match_line: Sequence[Sequence[str]]) -> Iterator[str]:
+def filter_lines(
+    f: Iterable[str], match_line: Sequence[Sequence[str]]
+) -> Iterator[str]:
     regexes = [
         regex.compile(r'\L<keywords>', keywords=keywords, flags=regex.I)
         for keywords in match_line
@@ -43,94 +41,98 @@ def parse_lines(
             yield line, ''
 
 
-class CreatePageTweets(luigi.Task):
-    data_path = luigi.Parameter()
-    feed_name = luigi.Parameter()
+class CreatePageTweets(luigi.contrib.postgres.CopyToTable):
     page_url = luigi.Parameter()
+    page_text = luigi.Parameter()
     match_line = luigi.ListParameter()
     parse_pattern = luigi.Parameter()
     tweet_template = luigi.Parameter()
 
-    @staticmethod
-    def get_output_path(data_path: str, feed_name: str, page_url: str) -> Path:
-        return (
-            Path(data_path)
-            / safe_filename(feed_name)
-            / safe_filename(simplify_url(page_url))
-            / 'page_tweets.csv'
-        )
+    host = luigi.Parameter()
+    database = luigi.Parameter()
+    user = luigi.Parameter()
+    password = luigi.Parameter()
+    table = luigi.Parameter()
 
-    def output(self):
-        return luigi.LocalTarget(
-            self.get_output_path(self.data_path, self.feed_name, self.page_url)
-        )
+    columns = [
+        ('url', 'TEXT'),
+        ('line', 'TEXT'),
+        ('parsed', 'TEXT'),
+        ('tweet', 'TEXT'),
+    ]
 
-    def requires(self):
-        return DownloadPageText(
-            data_path=self.data_path,
-            feed_name=self.feed_name,
-            page_url=self.page_url,
-        )
-
-    def run(self):
-        tweet_template_obj = Template(self.tweet_template)
-        with self.input().open('r') as f:
-            lines = filter_lines(f, self.match_line)
-            tweets = [
-                {
-                    'url': self.page_url,
-                    'line': line,
-                    'parsed': parsed,
-                    'tweet': tweet_template_obj.substitute(
-                        parsed=parsed, url=self.page_url
-                    )
-                    if parsed
-                    else '',
-                }
-                for line, parsed in parse_lines(lines, self.parse_pattern)
+    @property
+    def update_id(self):
+        return json.dumps(
+            [
+                self.page_url,
+                self.match_line,
+                self.parse_pattern,
+                self.tweet_template,
             ]
-        with self.output().open('w') as f:
-            write_csv_dict(tweets, f)
+        )
+
+    def rows(self):
+        tweet_template_obj = Template(self.tweet_template)
+        lines = filter_lines(self.page_text.splitlines(), self.match_line)
+        for line, parsed in parse_lines(lines, self.parse_pattern):
+            tweet = (
+                tweet_template_obj.substitute(parsed=parsed, url=self.page_url)
+                if parsed
+                else ''
+            )
+            yield (self.page_url, line, parsed, tweet)
 
 
 class CreateTweets(luigi.WrapperTask):
-    data_path = luigi.Parameter()
-    feeds = luigi.ListParameter()
     match_line = luigi.ListParameter()
     parse_pattern = luigi.Parameter()
     tweet_template = luigi.Parameter()
 
-    @staticmethod
-    def get_page_urls(data_path: str, feed_name: str) -> Iterator[str]:
-        for page_url_path in (Path(data_path) / safe_filename(feed_name)).glob(
-            '*/page_url.txt'
-        ):
-            yield read_first_line(page_url_path)
+    host = luigi.Parameter()
+    database = luigi.Parameter()
+    user = luigi.Parameter()
+    password = luigi.Parameter()
+    table_pages = luigi.Parameter()
+    table_tweets = luigi.Parameter()
+
+    @classmethod
+    def get_pages(
+        cls, database: str, user: str, password: str, table: str
+    ) -> Iterator[tuple]:
+        conn = psycopg2.connect(dbname=database, user=user, password=password)
+        cur = conn.cursor()
+        cur.execute(f'SELECT url, text FROM {table};')
+        yield from cur
+        cur.close()
 
     @classmethod
     def read_all_tweets(
-        cls, data_path: str, feeds: List[Dict[str, str]]
+        cls, database: str, user: str, password: str, table: str
     ) -> Iterator[Dict[str, str]]:
-        for feed in feeds:
-            for page_url in cls.get_page_urls(data_path, feed['name']):
-                page_tweets_path = CreatePageTweets.get_output_path(
-                    data_path, feed['name'], page_url
-                )
-                if page_tweets_path.is_file():
-                    with page_tweets_path.open('r') as f:
-                        yield from read_csv_dict(f)
+        conn = psycopg2.connect(dbname=database, user=user, password=password)
+        cur = conn.cursor()
+        cur.execute(f'SELECT url, line, parsed, tweet FROM {table};')
+        for url, line, parsed, tweet in cur:
+            yield {'url': url, 'line': line, 'parsed': parsed, 'tweet': tweet}
+        cur.close()
 
     def requires(self):
-        for feed in self.feeds:
-            for page_url in self.get_page_urls(self.data_path, feed['name']):
-                yield CreatePageTweets(
-                    data_path=self.data_path,
-                    feed_name=feed['name'],
-                    page_url=page_url,
-                    match_line=self.match_line,
-                    parse_pattern=self.parse_pattern,
-                    tweet_template=self.tweet_template,
-                )
+        for page_url, page_text in self.get_pages(
+            self.database, self.user, self.password, self.table_pages
+        ):
+            yield CreatePageTweets(
+                page_url=page_url,
+                page_text=page_text,
+                match_line=self.match_line,
+                parse_pattern=self.parse_pattern,
+                tweet_template=self.tweet_template,
+                host=self.host,
+                database=self.database,
+                user=self.user,
+                password=self.password,
+                table=self.table_tweets,
+            )
 
 
 def main():
@@ -152,15 +154,20 @@ def main():
     luigi.build(
         [
             CreateTweets(
-                data_path=args.data,
-                feeds=config['feeds'],
                 match_line=config['match_line'],
                 parse_pattern=config['parse_pattern'],
                 tweet_template=config['tweet_template'],
+                host=config['db']['host'],
+                database=config['db']['database'],
+                user=config['db']['user'],
+                password=config['db']['password'],
+                table_pages=config['db']['table_pages'],
+                table_tweets=config['db']['table_tweets'],
             )
         ],
         workers=6,
         local_scheduler=True,
+        parallel_scheduling=True,
         log_level='WARNING',
     )
 
