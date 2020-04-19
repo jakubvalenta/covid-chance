@@ -48,7 +48,7 @@ class ParseLine(luigi.contrib.postgres.CopyToTable):
 
     @property
     def update_id(self):
-        return hashobj(self.page_url, self.line, self.parse_pattern)
+        return hashobj(self.line, self.parse_pattern)
 
     def rows(self):
         return (
@@ -77,6 +77,15 @@ class ParseLines(luigi.WrapperTask):
         cur.execute(f'SELECT url, line FROM {table};')
         yield from cur
         cur.close()
+
+    @classmethod
+    def count(cls, database: str, user: str, password: str, table: str) -> int:
+        conn = psycopg2.connect(dbname=database, user=user, password=password)
+        cur = conn.cursor()
+        cur.execute(f'SELECT COUNT(*) FROM {table};')
+        count = int(cur.fetchone()[0])
+        cur.close()
+        return count
 
     def requires(self):
         for page_url, line in self.get_lines(
