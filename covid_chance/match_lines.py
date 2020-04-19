@@ -9,6 +9,8 @@ import luigi.contrib.postgres
 import psycopg2
 import regex
 
+from covid_chance.hash_utils import hashobj
+
 
 def filter_lines(
     f: Iterable[str], match_line: Sequence[Sequence[str]]
@@ -38,7 +40,7 @@ class MatchPageLines(luigi.contrib.postgres.CopyToTable):
 
     @property
     def update_id(self):
-        return json.dumps([self.page_url, self.match_line])
+        return hashobj(self.page_text, self.match_line)
 
     def rows(self):
         return (

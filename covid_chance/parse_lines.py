@@ -9,6 +9,8 @@ import luigi.contrib.postgres
 import psycopg2
 import regex
 
+from covid_chance.hash_utils import hashobj
+
 
 def searchall(rx: regex.Regex, s: str) -> Iterator:
     m = rx.search(s)
@@ -46,7 +48,7 @@ class ParseLine(luigi.contrib.postgres.CopyToTable):
 
     @property
     def update_id(self):
-        return json.dumps([self.page_url, self.line, self.parse_pattern])
+        return hashobj(self.line, self.parse_pattern)
 
     def rows(self):
         return (
