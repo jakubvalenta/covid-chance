@@ -36,7 +36,7 @@ parse-lines:  ## Parse matched lines
 		--data "$(data_path)" --config "$(config_path)"
 
 .PHONY: create-tweets
-create-tweets:  ## Create tweets from the pages stored in the database
+create-tweets:  ## Create tweets from parsed lines
 	"./$(_executable)" python -m "$(_python_pkg).create_tweets" \
 		--data "$(data_path)" --config "$(config_path)"
 
