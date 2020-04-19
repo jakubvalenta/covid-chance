@@ -30,6 +30,11 @@ match-lines:  ## Save lines that match patterns from the pages stored in the dat
 	"./$(_executable)" python -m "$(_python_pkg).match_lines" \
 		--data "$(data_path)" --config "$(config_path)"
 
+.PHONY: parse-lines
+parse-lines:  ## Parse matched lines
+	"./$(_executable)" python -m "$(_python_pkg).parse_lines" \
+		--data "$(data_path)" --config "$(config_path)"
+
 .PHONY: create-tweets
 create-tweets:  ## Create tweets from the pages stored in the database
 	"./$(_executable)" python -m "$(_python_pkg).create_tweets" \
