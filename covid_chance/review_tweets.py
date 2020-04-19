@@ -8,9 +8,8 @@ from typing import Dict, Optional
 
 import colored
 
-from covid_chance.create_tweets import CreateTweets
-from covid_chance.match_lines import MatchLines
-from covid_chance.parse_lines import ParseLines
+from covid_chance.create_tweets import read_all_tweets
+from covid_chance.db_utils import db_connect, db_count
 from covid_chance.tweet_list import TweetList
 
 logger = logging.getLogger(__name__)
@@ -75,27 +74,19 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-    db_params = {
-        'database': config['db']['database'],
-        'user': config['db']['user'],
-        'password': config['db']['password'],
-    }
-    all_tweets = list(
-        CreateTweets.read_all_tweets(
-            **db_params, table=config['db']['table_tweets'],
-        )
+    conn = db_connect(
+        database=config['db']['database'],
+        user=config['db']['user'],
+        password=config['db']['password'],
     )
-    match_lines_count = MatchLines.count(
-        **db_params, table=config['db']['table_lines']
-    )
-    parsed_count = ParseLines.count(
-        **db_params, table=config['db']['table_parsed']
-    )
+    match_lines_count = db_count(conn, config['db']['table_lines'])
+    parsed_count = db_count(conn, config['db']['table_parsed'])
+    tweets_count = db_count(conn, config['db']['table_tweets'])
+    tweets = list(read_all_tweets(conn, config['db']['table_tweets']))
     logger.info('Number of matching lines: %d', match_lines_count)
     logger.info('Number of parsed strings: %d', parsed_count)
     logger.info(
-        'Number of all tweets: %d',
-        len([tweet for tweet in all_tweets if tweet['tweet']]),
+        'Number of all tweets: %d', tweets_count,
     )
     reviewed_tweets = TweetList(get_reviewed_tweets_path(args.data))
     logger.info(
@@ -120,7 +111,7 @@ def main():
     )
     pending_tweets = [
         tweet
-        for tweet in all_tweets
+        for tweet in tweets
         if tweet['tweet'] and not reviewed_tweets.find(tweet)
     ]
     logger.info('Number of tweets to review: %d', len(pending_tweets))

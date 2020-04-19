@@ -5,91 +5,78 @@ import sys
 from string import Template
 from typing import Dict, Iterator
 
-import luigi
-import luigi.contrib.postgres
 import psycopg2
+import psycopg2.errorcodes
 
+from covid_chance.db_utils import db_connect, db_insert, db_select
 from covid_chance.hash_utils import hashobj
 
+logger = logging.getLogger(__name__)
 
-class CreateLineTweets(luigi.contrib.postgres.CopyToTable):
-    page_url = luigi.Parameter()
-    line = luigi.Parameter()
-    parsed = luigi.Parameter()
-    tweet_template = luigi.Parameter()
 
-    host = luigi.Parameter()
-    database = luigi.Parameter()
-    user = luigi.Parameter()
-    password = luigi.Parameter()
-    table = luigi.Parameter()
+def create_table(conn, table: str):
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            f'''
+CREATE TABLE {table} (
+  update_id TEXT,
+  url TEXT,
+  line TEXT,
+  parsed TEXT,
+  tweet TEXT,
+  inserted TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX index_{table}_update_id ON {table} (update_id);
+'''
+        )
+    except psycopg2.ProgrammingError as e:
+        if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
+            pass
+        else:
+            raise
+    conn.commit()
+    cur.close()
 
-    columns = [
-        ('url', 'TEXT'),
-        ('line', 'TEXT'),
-        ('parsed', 'TEXT'),
-        ('tweet', 'TEXT'),
-    ]
 
-    @property
-    def update_id(self):
-        return hashobj(
-            self.page_url, self.line, self.parsed, self.tweet_template
+def get_parsed(conn, table: str) -> Iterator[tuple]:
+    cur = conn.cursor()
+    cur.execute(f"SELECT url, line, parsed FROM {table} WHERE parsed != '';")
+    yield from cur
+    cur.close()
+
+
+def create_tweets(
+    conn, tweet_template: str, table_parsed: str, table_tweets: str
+):
+    tmpl = Template(tweet_template)
+    create_table(conn, table_tweets)
+    for i, (page_url, line, parsed) in enumerate(
+        get_parsed(conn, table_parsed)
+    ):
+        update_id = hashobj(page_url, line, parsed, tweet_template)
+        if db_select(conn, table_tweets, update_id=update_id):
+            logger.info('%d done %s', i, page_url)
+            continue
+        logger.info('%d todo %s', i, page_url)
+        tweet = tmpl.substitute(parsed=parsed, url=page_url)
+        db_insert(
+            conn,
+            table_tweets,
+            update_id=update_id,
+            url=page_url,
+            line=line,
+            parsed=parsed,
+            tweet=tweet,
         )
 
-    def rows(self):
-        tweet = Template(self.tweet_template).substitute(
-            parsed=self.parsed, url=self.page_url
-        )
-        yield (self.page_url, self.line, self.parsed, tweet)
 
-
-class CreateTweets(luigi.WrapperTask):
-    tweet_template = luigi.Parameter()
-
-    host = luigi.Parameter()
-    database = luigi.Parameter()
-    user = luigi.Parameter()
-    password = luigi.Parameter()
-    table_parsed = luigi.Parameter()
-    table_tweets = luigi.Parameter()
-
-    @classmethod
-    def get_parsed(
-        cls, database: str, user: str, password: str, table: str
-    ) -> Iterator[tuple]:
-        conn = psycopg2.connect(dbname=database, user=user, password=password)
-        cur = conn.cursor()
-        cur.execute(f'SELECT url, line, parsed FROM {table};')
-        yield from cur
-        cur.close()
-
-    @classmethod
-    def read_all_tweets(
-        cls, database: str, user: str, password: str, table: str
-    ) -> Iterator[Dict[str, str]]:
-        conn = psycopg2.connect(dbname=database, user=user, password=password)
-        cur = conn.cursor()
-        cur.execute(f'SELECT url, line, parsed, tweet FROM {table};')
-        for url, line, parsed, tweet in cur:
-            yield {'url': url, 'line': line, 'parsed': parsed, 'tweet': tweet}
-        cur.close()
-
-    def requires(self):
-        for page_url, line, parsed in self.get_parsed(
-            self.database, self.user, self.password, self.table_parsed
-        ):
-            yield CreateLineTweets(
-                page_url=page_url,
-                line=line,
-                parsed=parsed,
-                tweet_template=self.tweet_template,
-                host=self.host,
-                database=self.database,
-                user=self.user,
-                password=self.password,
-                table=self.table_tweets,
-            )
+def read_all_tweets(conn, table: str) -> Iterator[Dict[str, str]]:
+    cur = conn.cursor()
+    cur.execute(f'SELECT url, line, parsed, tweet FROM {table};')
+    for url, line, parsed, tweet in cur:
+        yield {'url': url, 'line': line, 'parsed': parsed, 'tweet': tweet}
+    cur.close()
 
 
 def main():
@@ -108,23 +95,19 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-    luigi.build(
-        [
-            CreateTweets(
-                tweet_template=config['tweet_template'],
-                host=config['db']['host'],
-                database=config['db']['database'],
-                user=config['db']['user'],
-                password=config['db']['password'],
-                table_parsed=config['db']['table_parsed'],
-                table_tweets=config['db']['table_tweets'],
-            )
-        ],
-        workers=6,
-        local_scheduler=True,
-        parallel_scheduling=True,
-        log_level='WARNING',
+    conn = db_connect(
+        host=config['db']['host'],
+        database=config['db']['database'],
+        user=config['db']['user'],
+        password=config['db']['password'],
     )
+    create_tweets(
+        conn,
+        tweet_template=config['tweet_template'],
+        table_parsed=config['db']['table_parsed'],
+        table_tweets=config['db']['table_tweets'],
+    )
+    conn.close()
 
 
 if __name__ == '__main__':

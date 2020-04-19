@@ -4,12 +4,38 @@ import logging
 import sys
 from typing import Iterator, Tuple
 
-import luigi
-import luigi.contrib.postgres
 import psycopg2
+import psycopg2.errorcodes
 import regex
 
+from covid_chance.db_utils import db_connect, db_insert, db_select
 from covid_chance.hash_utils import hashobj
+
+logger = logging.getLogger(__name__)
+
+
+def create_table(conn, table: str):
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            f'''
+CREATE TABLE {table} (
+  update_id TEXT,
+  url TEXT,
+  line TEXT,
+  parsed TEXT,
+  inserted TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX index_{table}_update_id ON {table} (update_id);
+'''
+        )
+    except psycopg2.ProgrammingError as e:
+        if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
+            pass
+        else:
+            raise
+    conn.commit()
+    cur.close()
 
 
 def searchall(rx: regex.Regex, s: str) -> Iterator:
@@ -19,8 +45,7 @@ def searchall(rx: regex.Regex, s: str) -> Iterator:
         m = rx.search(s, pos=m.span()[1])
 
 
-def parse_line(line: str, pattern: str) -> Iterator[Tuple[str, str]]:
-    rx = regex.compile(pattern)
+def parse_line(rx, line: str) -> Iterator[Tuple[str, str]]:
     matches = list(searchall(rx, line))
     if matches:
         for m in matches:
@@ -29,77 +54,30 @@ def parse_line(line: str, pattern: str) -> Iterator[Tuple[str, str]]:
         yield line, ''
 
 
-class ParseLine(luigi.contrib.postgres.CopyToTable):
-    page_url = luigi.Parameter()
-    line = luigi.Parameter()
-    parse_pattern = luigi.Parameter()
-
-    host = luigi.Parameter()
-    database = luigi.Parameter()
-    user = luigi.Parameter()
-    password = luigi.Parameter()
-    table = luigi.Parameter()
-
-    columns = [
-        ('url', 'TEXT'),
-        ('line', 'TEXT'),
-        ('parsed', 'TEXT'),
-    ]
-
-    @property
-    def update_id(self):
-        return hashobj(self.line, self.parse_pattern)
-
-    def rows(self):
-        return (
-            (self.page_url, line, parsed)
-            for line, parsed in parse_line(self.line, self.parse_pattern)
-            if parsed
-        )
+def get_lines(conn, table: str) -> Iterator[tuple]:
+    cur = conn.cursor()
+    cur.execute(f'SELECT url, line FROM {table};')
+    yield from cur
+    cur.close()
 
 
-class ParseLines(luigi.WrapperTask):
-    parse_pattern = luigi.Parameter()
-
-    host = luigi.Parameter()
-    database = luigi.Parameter()
-    user = luigi.Parameter()
-    password = luigi.Parameter()
-    table_lines = luigi.Parameter()
-    table_parsed = luigi.Parameter()
-
-    @classmethod
-    def get_lines(
-        cls, database: str, user: str, password: str, table: str
-    ) -> Iterator[tuple]:
-        conn = psycopg2.connect(dbname=database, user=user, password=password)
-        cur = conn.cursor()
-        cur.execute(f'SELECT url, line FROM {table};')
-        yield from cur
-        cur.close()
-
-    @classmethod
-    def count(cls, database: str, user: str, password: str, table: str) -> int:
-        conn = psycopg2.connect(dbname=database, user=user, password=password)
-        cur = conn.cursor()
-        cur.execute(f'SELECT COUNT(*) FROM {table};')
-        count = int(cur.fetchone()[0])
-        cur.close()
-        return count
-
-    def requires(self):
-        for page_url, line in self.get_lines(
-            self.database, self.user, self.password, self.table_lines
-        ):
-            yield ParseLine(
-                page_url=page_url,
+def parse_lines(conn, parse_pattern: str, table_lines: str, table_parsed: str):
+    rx = regex.compile(parse_pattern)
+    create_table(conn, table_parsed)
+    for i, (page_url, line) in enumerate(get_lines(conn, table_lines)):
+        update_id = hashobj(line, parse_pattern)
+        if db_select(conn, table_parsed, update_id=update_id):
+            logger.info('%d done %s', i, page_url)
+            continue
+        logger.info('%d todo %s', i, page_url)
+        for line, parsed in parse_line(rx, line):
+            db_insert(
+                conn,
+                table_parsed,
+                update_id=update_id,
+                url=page_url,
                 line=line,
-                parse_pattern=self.parse_pattern,
-                host=self.host,
-                database=self.database,
-                user=self.user,
-                password=self.password,
-                table=self.table_parsed,
+                parsed=parsed,
             )
 
 
@@ -119,23 +97,19 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-    luigi.build(
-        [
-            ParseLines(
-                parse_pattern=config['parse_pattern'],
-                host=config['db']['host'],
-                database=config['db']['database'],
-                user=config['db']['user'],
-                password=config['db']['password'],
-                table_lines=config['db']['table_lines'],
-                table_parsed=config['db']['table_parsed'],
-            )
-        ],
-        workers=6,
-        local_scheduler=True,
-        parallel_scheduling=True,
-        log_level='WARNING',
+    conn = db_connect(
+        host=config['db']['host'],
+        database=config['db']['database'],
+        user=config['db']['user'],
+        password=config['db']['password'],
     )
+    parse_lines(
+        conn,
+        parse_pattern=config['parse_pattern'],
+        table_lines=config['db']['table_lines'],
+        table_parsed=config['db']['table_parsed'],
+    )
+    conn.close()
 
 
 if __name__ == '__main__':

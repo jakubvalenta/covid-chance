@@ -5,28 +5,6 @@ def db_connect(**kwargs):
     return psycopg2.connect(**kwargs)
 
 
-def db_create_table(conn, table: str):
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            f'''
-CREATE TABLE {table} (
-  update_id TEXT,
-  url TEXT,
-  line TEXT,
-  inserted TIMESTAMP DEFAULT NOW()
-);
-CREATE INDEX index_{table}_update_id ON {table} (update_id);
-'''
-        )
-    except psycopg2.ProgrammingError as e:
-        if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
-            pass
-        else:
-            raise
-    cur.close()
-
-
 def db_select(conn, table: str, **kwargs) -> tuple:
     cur = conn.cursor()
     params = ' AND '.join(f'{k} = %s' for k in kwargs.keys())
@@ -45,6 +23,7 @@ def db_insert(conn, table: str, **kwargs):
     cur.execute(
         f'INSERT INTO {table} ({columns}) VALUES ({placeholders});', values,
     )
+    conn.commit()
     cur.close()
 
 
@@ -54,8 +33,3 @@ def db_count(conn, table: str) -> int:
     count = int(cur.fetchone()[0])
     cur.close()
     return count
-
-    db_connect,
-    db_create_table,
-    db_insert,
-    db_select,
