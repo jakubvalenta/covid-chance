@@ -48,7 +48,7 @@ class ParseLine(luigi.contrib.postgres.CopyToTable):
 
     @property
     def update_id(self):
-        return hashobj(self.line, self.parse_pattern)
+        return hashobj(self.page_url, self.line, self.parse_pattern)
 
     def rows(self):
         return (

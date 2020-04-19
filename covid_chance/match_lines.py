@@ -40,7 +40,7 @@ class MatchPageLines(luigi.contrib.postgres.CopyToTable):
 
     @property
     def update_id(self):
-        return hashobj(self.page_text, self.match_line)
+        return hashobj(self.page_url, self.page_text, self.match_line)
 
     def rows(self):
         return (
@@ -70,6 +70,15 @@ class MatchLines(luigi.WrapperTask):
         cur.execute(f'SELECT url, text FROM {table};')
         yield from cur
         cur.close()
+
+    @classmethod
+    def count(cls, database: str, user: str, password: str, table: str) -> int:
+        conn = psycopg2.connect(dbname=database, user=user, password=password)
+        cur = conn.cursor()
+        cur.execute(f'SELECT COUNT(*) FROM {table};')
+        count = int(cur.fetchone()[0])
+        cur.close()
+        return count
 
     def requires(self):
         for page_url, page_text in self.get_pages(

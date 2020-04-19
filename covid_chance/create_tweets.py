@@ -33,7 +33,9 @@ class CreateLineTweets(luigi.contrib.postgres.CopyToTable):
 
     @property
     def update_id(self):
-        return hashobj(self.page_url, self.parsed, self.tweet_template)
+        return hashobj(
+            self.page_url, self.line, self.parsed, self.tweet_template
+        )
 
     def rows(self):
         tweet = Template(self.tweet_template).substitute(
