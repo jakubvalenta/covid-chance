@@ -2,14 +2,14 @@ import argparse
 import json
 import logging
 import sys
-from typing import Iterable, Iterator, Sequence
+from typing import Iterable, Iterator, List, Sequence
 
-import luigi
-import luigi.contrib.postgres
 import psycopg2
 import regex
 
 from covid_chance.hash_utils import hashobj
+
+logger = logging.getLogger(__name__)
 
 
 def filter_lines(
@@ -22,78 +22,86 @@ def filter_lines(
     return (line.strip() for line in f if all(r.search(line) for r in regexes))
 
 
-class MatchPageLines(luigi.contrib.postgres.CopyToTable):
-    page_url = luigi.Parameter()
-    page_text = luigi.Parameter()
-    match_line = luigi.ListParameter()
+def db_connect(**kwargs):
+    return psycopg2.connect(**kwargs)
 
-    host = luigi.Parameter()
-    database = luigi.Parameter()
-    user = luigi.Parameter()
-    password = luigi.Parameter()
-    table = luigi.Parameter()
 
-    columns = [
-        ('url', 'TEXT'),
-        ('line', 'TEXT'),
-    ]
-
-    @property
-    def update_id(self):
-        return hashobj(self.page_url, self.page_text, self.match_line)
-
-    def rows(self):
-        return (
-            (self.page_url, line)
-            for line in filter_lines(
-                self.page_text.splitlines(), self.match_line
-            )
+def db_create_table(conn, table: str):
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            f'''
+CREATE TABLE {table} (
+  update_id TEXT,
+  url TEXT,
+  line TEXT,
+  inserted TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX index_{table}_update_id ON {table} (update_id);
+'''
         )
+    except psycopg2.ProgrammingError as e:
+        if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
+            pass
+        else:
+            raise
+    cur.close()
 
 
-class MatchLines(luigi.WrapperTask):
-    match_line = luigi.ListParameter()
+def db_select(conn, table: str, **kwargs) -> tuple:
+    cur = conn.cursor()
+    params = ' AND '.join(f'{k} = %s' for k in kwargs.keys())
+    values = tuple(kwargs.values())
+    cur.execute(f'SELECT * FROM {table} WHERE {params} LIMIT 1;', values)
+    row = cur.fetchone()
+    cur.close()
+    return row
 
-    host = luigi.Parameter()
-    database = luigi.Parameter()
-    user = luigi.Parameter()
-    password = luigi.Parameter()
-    table_lines = luigi.Parameter()
-    table_pages = luigi.Parameter()
 
-    @classmethod
-    def get_pages(
-        cls, database: str, user: str, password: str, table: str
-    ) -> Iterator[tuple]:
-        conn = psycopg2.connect(dbname=database, user=user, password=password)
-        cur = conn.cursor()
-        cur.execute(f'SELECT url, text FROM {table};')
-        yield from cur
-        cur.close()
+def db_insert(conn, table: str, **kwargs):
+    cur = conn.cursor()
+    columns = ', '.join(kwargs.keys())
+    placeholders = ', '.join('%s' for _ in kwargs.values())
+    values = tuple(kwargs.values())
+    cur.execute(
+        f'INSERT INTO {table} ({columns}) VALUES ({placeholders});', values,
+    )
+    cur.close()
 
-    @classmethod
-    def count(cls, database: str, user: str, password: str, table: str) -> int:
-        conn = psycopg2.connect(dbname=database, user=user, password=password)
-        cur = conn.cursor()
-        cur.execute(f'SELECT COUNT(*) FROM {table};')
-        count = int(cur.fetchone()[0])
-        cur.close()
-        return count
 
-    def requires(self):
-        for page_url, page_text in self.get_pages(
-            self.database, self.user, self.password, self.table_pages
-        ):
-            yield MatchPageLines(
-                page_url=page_url,
-                page_text=page_text,
-                match_line=self.match_line,
-                host=self.host,
-                database=self.database,
-                user=self.user,
-                password=self.password,
-                table=self.table_lines,
-            )
+def get_pages(conn, table: str) -> Iterator[tuple]:
+    cur = conn.cursor()
+    cur.execute(f'SELECT url, text FROM {table};')
+    yield from cur
+    cur.close()
+
+
+def count(conn, table: str) -> int:
+    cur = conn.cursor()
+    cur.execute(f'SELECT COUNT(*) FROM {table};')
+    count = int(cur.fetchone()[0])
+    cur.close()
+    return count
+
+
+def match_lines(
+    conn, match_line: List[List[str]], table_lines: str, table_pages: str,
+):
+    db_create_table(conn, table_lines)
+    for i, (page_url, page_text) in enumerate(get_pages(conn, table_pages)):
+        update_id = hashobj(page_text, match_line)
+        if db_select(conn, table_lines, update_id=update_id):
+            logger.info('%d %s - already processed', i, page_url)
+        else:
+            logger.info('%d %s - processing', i, page_url)
+            for line in filter_lines(page_text.splitlines(), match_line):
+                db_insert(
+                    conn,
+                    table_lines,
+                    update_id=update_id,
+                    url=page_url,
+                    line=line,
+                )
 
 
 def main():
@@ -112,22 +120,17 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-    luigi.build(
-        [
-            MatchLines(
-                match_line=config['match_line'],
-                host=config['db']['host'],
-                database=config['db']['database'],
-                user=config['db']['user'],
-                password=config['db']['password'],
-                table_lines=config['db']['table_lines'],
-                table_pages=config['db']['table_pages'],
-            )
-        ],
-        workers=6,
-        local_scheduler=True,
-        parallel_scheduling=True,
-        log_level='WARNING',
+    conn = db_connect(
+        host=config['db']['host'],
+        database=config['db']['database'],
+        user=config['db']['user'],
+        password=config['db']['password'],
+    )
+    match_lines(
+        conn,
+        match_line=config['match_line'],
+        table_lines=config['db']['table_lines'],
+        table_pages=config['db']['table_pages'],
     )
 
 

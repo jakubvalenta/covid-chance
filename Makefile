@@ -28,7 +28,7 @@ copy-pages-to-db:  ## Copy downloaded pages into the database
 .PHONY: match-lines
 match-lines:  ## Save lines that match patterns from the pages stored in the database
 	"./$(_executable)" python -m "$(_python_pkg).match_lines" \
-		--data "$(data_path)" --config "$(config_path)"
+		-v --data "$(data_path)" --config "$(config_path)"
 
 .PHONY: parse-lines
 parse-lines:  ## Parse matched lines
