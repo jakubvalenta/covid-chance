@@ -61,7 +61,7 @@ def create_tweet(
     if db_select(conn, table, update_id=update_id):
         logger.info('%d done %s', i, page_url)
         return
-    logger.info('%d todo %s', i, page_url)
+    logger.warning('%d todo %s', i, page_url)
     tweet = tmpl.substitute(parsed=parsed, url=page_url)
     db_insert(
         conn,

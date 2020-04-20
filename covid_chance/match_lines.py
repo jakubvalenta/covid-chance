@@ -70,8 +70,9 @@ def match_page_lines(
     if db_select(conn, table, url=page_url, match_line_hash=match_line_hash):
         logger.info('%d done %s', i, page_url)
         return
-    logger.info('%d todo %s', i, page_url)
+    logger.warning('%d todo %s', i, page_url)
     cur = conn.cursor()
+    inserted = False
     for line in page_text.splitlines():
         if contains_all_substr_groups(line, match_line):
             db_insert(
@@ -82,6 +83,16 @@ def match_page_lines(
                 line=line.strip(),
                 match_line_hash=match_line_hash,
             )
+            inserted = True
+    if not inserted:
+        db_insert(
+            conn,
+            table,
+            cur=cur,
+            url=page_url,
+            line='',
+            match_line_hash=match_line_hash,
+        )
     conn.commit()
     cur.close()
 
@@ -93,7 +104,6 @@ def match_lines(
     table_pages: str,
 ):
     match_line_hash = hashobj(match_line)
-    logger.info(match_line_hash)
     create_table(conn, table_lines)
     with ThreadPoolExecutor() as executor:
         futures = [

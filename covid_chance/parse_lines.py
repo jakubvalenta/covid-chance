@@ -57,7 +57,7 @@ def parse_line(rx, line: str) -> Iterator[Tuple[str, str]]:
 
 def get_lines(conn, table: str) -> Iterator[tuple]:
     cur = conn.cursor()
-    cur.execute(f'SELECT url, line FROM {table};')
+    cur.execute(f"SELECT url, line FROM {table} WHERE line != '';")
     yield from cur
     cur.close()
 
@@ -69,7 +69,7 @@ def parse_lines_one(
     if db_select(conn, table, update_id=update_id):
         logger.info('%d done %s', i, page_url)
         return
-    logger.info('%d todo %s', i, page_url)
+    logger.warning('%d todo %s', i, page_url)
     for line, parsed in parse_line(rx, line):
         db_insert(
             conn,
