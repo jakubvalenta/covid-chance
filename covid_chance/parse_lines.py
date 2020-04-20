@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import sys
+from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Iterator, Tuple
 
 import psycopg2
@@ -61,24 +62,43 @@ def get_lines(conn, table: str) -> Iterator[tuple]:
     cur.close()
 
 
+def parse_lines_one(
+    conn, table: str, i: int, page_url: str, line: str, parse_pattern: str, rx
+):
+    update_id = hashobj(line, parse_pattern)
+    if db_select(conn, table, update_id=update_id):
+        logger.info('%d done %s', i, page_url)
+        return
+    logger.info('%d todo %s', i, page_url)
+    for line, parsed in parse_line(rx, line):
+        db_insert(
+            conn,
+            table,
+            update_id=update_id,
+            url=page_url,
+            line=line,
+            parsed=parsed,
+        )
+
+
 def parse_lines(conn, parse_pattern: str, table_lines: str, table_parsed: str):
     rx = regex.compile(parse_pattern)
     create_table(conn, table_parsed)
-    for i, (page_url, line) in enumerate(get_lines(conn, table_lines)):
-        update_id = hashobj(line, parse_pattern)
-        if db_select(conn, table_parsed, update_id=update_id):
-            logger.info('%d done %s', i, page_url)
-            continue
-        logger.info('%d todo %s', i, page_url)
-        for line, parsed in parse_line(rx, line):
-            db_insert(
+    with ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(
+                parse_lines_one,
                 conn,
                 table_parsed,
-                update_id=update_id,
-                url=page_url,
-                line=line,
-                parsed=parsed,
+                i,
+                page_url,
+                line,
+                parse_pattern,
+                rx,
             )
+            for i, (page_url, line) in enumerate(get_lines(conn, table_lines))
+        ]
+        wait(futures)
 
 
 def main():

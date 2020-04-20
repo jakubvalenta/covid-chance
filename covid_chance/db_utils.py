@@ -15,16 +15,20 @@ def db_select(conn, table: str, **kwargs) -> tuple:
     return row
 
 
-def db_insert(conn, table: str, **kwargs):
-    cur = conn.cursor()
+def db_insert(conn, table: str, cur=None, **kwargs):
+    if cur is None:
+        cur_ = conn.cursor()
+    else:
+        cur_ = cur
     columns = ', '.join(kwargs.keys())
     placeholders = ', '.join('%s' for _ in kwargs.values())
     values = tuple(kwargs.values())
-    cur.execute(
+    cur_.execute(
         f'INSERT INTO {table} ({columns}) VALUES ({placeholders});', values,
     )
-    conn.commit()
-    cur.close()
+    if cur is None:
+        conn.commit()
+        cur_.close()
 
 
 def db_count(conn, table: str) -> int:

@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import sys
+from concurrent.futures import ThreadPoolExecutor, wait
 from string import Template
 from typing import Dict, Iterator
 
@@ -46,29 +47,56 @@ def get_parsed(conn, table: str) -> Iterator[tuple]:
     cur.close()
 
 
+def create_tweet(
+    conn,
+    table: str,
+    i: int,
+    page_url: str,
+    line: str,
+    parsed: str,
+    tweet_template: str,
+    tmpl: Template,
+):
+    update_id = hashobj(page_url, line, parsed, tweet_template)
+    if db_select(conn, table, update_id=update_id):
+        logger.info('%d done %s', i, page_url)
+        return
+    logger.info('%d todo %s', i, page_url)
+    tweet = tmpl.substitute(parsed=parsed, url=page_url)
+    db_insert(
+        conn,
+        table,
+        update_id=update_id,
+        url=page_url,
+        line=line,
+        parsed=parsed,
+        tweet=tweet,
+    )
+
+
 def create_tweets(
     conn, tweet_template: str, table_parsed: str, table_tweets: str
 ):
     tmpl = Template(tweet_template)
     create_table(conn, table_tweets)
-    for i, (page_url, line, parsed) in enumerate(
-        get_parsed(conn, table_parsed)
-    ):
-        update_id = hashobj(page_url, line, parsed, tweet_template)
-        if db_select(conn, table_tweets, update_id=update_id):
-            logger.info('%d done %s', i, page_url)
-            continue
-        logger.info('%d todo %s', i, page_url)
-        tweet = tmpl.substitute(parsed=parsed, url=page_url)
-        db_insert(
-            conn,
-            table_tweets,
-            update_id=update_id,
-            url=page_url,
-            line=line,
-            parsed=parsed,
-            tweet=tweet,
-        )
+    with ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(
+                create_tweet,
+                conn,
+                table_tweets,
+                i,
+                page_url,
+                line,
+                parsed,
+                tweet_template,
+                tmpl,
+            )
+            for i, (page_url, line, parsed) in enumerate(
+                get_parsed(conn, table_parsed)
+            )
+        ]
+        wait(futures)
 
 
 def read_all_tweets(conn, table: str) -> Iterator[Dict[str, str]]:
