@@ -24,7 +24,7 @@ def clean_urls(
     table_lines: str,
     table_pages: str,
     table_parsed: str,
-    table_tweets: str,
+    table_reviewed: str,
 ):
     cur = conn.cursor()
     for i, page_url in enumerate(get_page_urls(conn, table_pages)):
@@ -33,7 +33,7 @@ def clean_urls(
             logger.info('%d done %s', i, page_url)
             continue
         logger.warning('%d todo %s > %s', i, page_url, clean_page_url)
-        for table in (table_lines, table_pages, table_parsed, table_tweets):
+        for table in (table_lines, table_pages, table_parsed, table_reviewed):
             cur.execute(
                 f'UPDATE {table} SET url = %s WHERE url = %s;',
                 (clean_page_url, page_url),
@@ -70,7 +70,7 @@ def main():
         table_lines=config['db']['table_lines'],
         table_pages=config['db']['table_pages'],
         table_parsed=config['db']['table_parsed'],
-        table_tweets=config['db']['table_tweets'],
+        table_reviewed=config['db']['table_reviewed'],
     )
     conn.close()
 
