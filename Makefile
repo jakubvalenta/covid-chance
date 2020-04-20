@@ -45,6 +45,11 @@ review-tweets-all:  ## Review created tweets
 	"./$(_executable)" python -m "$(_python_pkg).review_tweets" \
 		--data "$(data_path)" --config "$(config_path)" --all
 
+.PHONY: copy-reviewed-tweets-to-db
+copy-reviewed-tweets-to-db:  ## Copy reviewed tweets from CSV into the database
+	"./$(_executable)" python -m "$(_python_pkg).copy_reviewed_tweets_to_db" \
+		-v --data "$(data_path)" --config "$(config_path)"
+
 .PHONY: post-tweets
 post-tweets:  ## Post reviewed tweets
 	"./$(_executable)" python -m "$(_python_pkg).post_tweets" \
