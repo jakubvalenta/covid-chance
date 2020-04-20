@@ -225,9 +225,9 @@ def main():
             )
         if inp == 'q':
             break
-        if inp in ('s', ''):
+        if inp == 's':
             continue
-        if inp == 'y':
+        if inp in ('y' or ''):
             tweet.status = REVIEW_STATUS_APPROVED
         elif inp == 'n':
             tweet.status = REVIEW_STATUS_REJECTED
