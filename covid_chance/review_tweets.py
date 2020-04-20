@@ -4,11 +4,10 @@ import logging
 import sys
 from pathlib import Path
 from textwrap import fill, indent
-from typing import Dict, Optional
+from typing import Dict, Iterator, Optional
 
 import colored
 
-from covid_chance.create_tweets import read_all_tweets
 from covid_chance.db_utils import db_connect, db_count
 from covid_chance.tweet_list import TweetList
 
@@ -24,6 +23,14 @@ def highlight_substr(s: str, substr: str, fg_color: int = 2) -> str:
 
 def get_reviewed_tweets_path(data_path: str) -> Path:
     return Path(data_path) / f'reviewed_tweets.csv'
+
+
+def read_all_tweets(conn, table: str) -> Iterator[Dict[str, str]]:
+    cur = conn.cursor()
+    cur.execute(f'SELECT url, line, parsed, tweet FROM {table};')
+    for url, line, parsed, tweet in cur:
+        yield {'url': url, 'line': line, 'parsed': parsed, 'tweet': tweet}
+    cur.close()
 
 
 def print_tweet(

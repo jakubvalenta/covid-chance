@@ -35,11 +35,6 @@ parse-lines:  ## Parse matched lines
 	"./$(_executable)" python -m "$(_python_pkg).parse_lines" \
 		--data "$(data_path)" --config "$(config_path)"
 
-.PHONY: create-tweets
-create-tweets:  ## Create tweets from parsed lines
-	"./$(_executable)" python -m "$(_python_pkg).create_tweets" \
-		--data "$(data_path)" --config "$(config_path)"
-
 .PHONY: review-tweets
 review-tweets:  ## Review created tweets
 	"./$(_executable)" python -m "$(_python_pkg).review_tweets" \
