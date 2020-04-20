@@ -3,7 +3,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from textwrap import fill, indent
+from textwrap import fill
 from typing import Dict, Iterator, Optional
 
 import colored
@@ -27,9 +27,9 @@ def get_reviewed_tweets_path(data_path: str) -> Path:
 
 def read_all_tweets(conn, table: str) -> Iterator[Dict[str, str]]:
     cur = conn.cursor()
-    cur.execute(f'SELECT url, line, parsed, tweet FROM {table};')
-    for url, line, parsed, tweet in cur:
-        yield {'url': url, 'line': line, 'parsed': parsed, 'tweet': tweet}
+    cur.execute(f"SELECT url, line, parsed FROM {table} WHERE parsed != '';")
+    for url, line, parsed in cur:
+        yield {'url': url, 'line': line, 'parsed': parsed}
     cur.close()
 
 
@@ -41,27 +41,24 @@ def print_tweet(
     highlight: bool = False,
     counter_width: int = 7,
     status_width: int = 10,
-    separator_width: int = 20,
     line_width: int = 80,
 ):
-    print('-' * separator_width)
-    counter = '/'.join(
-        str(num) for num in (i, total) if num is not None
-    ).ljust(counter_width)
-    status = status.upper().ljust(status_width)
-    text = tweet['tweet']
-    print(''.join([counter, status, text]))
+    print('-' * line_width)
+    print(
+        '/'.join(str(num) for num in (i, total) if num is not None).ljust(
+            counter_width
+        ),
+        end='',
+    )
+    print(status.upper().ljust(status_width))
+    print()
+    print(tweet['url'])
     print()
     if highlight:
         s = highlight_substr(tweet['line'], tweet['parsed'])
     else:
         s = tweet['line']
-    print(
-        indent(
-            fill(s, line_width - status_width),
-            ' ' * (counter_width + status_width),
-        )
-    )
+    print(fill(s, line_width))
     print()
 
 
@@ -87,14 +84,9 @@ def main():
         password=config['db']['password'],
     )
     match_lines_count = db_count(conn, config['db']['table_lines'])
-    parsed_count = db_count(conn, config['db']['table_parsed'])
-    tweets_count = db_count(conn, config['db']['table_tweets'])
-    tweets = list(read_all_tweets(conn, config['db']['table_tweets']))
+    tweets = list(read_all_tweets(conn, config['db']['table_parsed']))
     logger.info('Number of matching lines: %d', match_lines_count)
-    logger.info('Number of parsed strings: %d', parsed_count)
-    logger.info(
-        'Number of all tweets: %d', tweets_count,
-    )
+    logger.info('Number of all tweets: %d', len(tweets))
     reviewed_tweets = TweetList(get_reviewed_tweets_path(args.data))
     logger.info(
         'Number of approved tweets: %d',
@@ -117,9 +109,7 @@ def main():
         ),
     )
     pending_tweets = [
-        tweet
-        for tweet in tweets
-        if tweet['tweet'] and not reviewed_tweets.find(tweet)
+        tweet for tweet in tweets if not reviewed_tweets.find(tweet)
     ]
     logger.info('Number of tweets to review: %d', len(pending_tweets))
     if not pending_tweets:
