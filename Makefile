@@ -38,12 +38,17 @@ parse-lines:  ## Parse matched lines
 .PHONY: review-tweets
 review-tweets:  ## Review created tweets
 	"./$(_executable)" python -m "$(_python_pkg).review_tweets" \
-		--data "$(data_path)" --config "$(config_path)"
+		-v --data "$(data_path)" --config "$(config_path)"
 
 .PHONY: review-tweets-all
-review-tweets-all:  ## Review created tweets
+review-tweets-all:  ## Review all tweets again
 	"./$(_executable)" python -m "$(_python_pkg).review_tweets" \
-		--data "$(data_path)" --config "$(config_path)" --all
+		-v --data "$(data_path)" --config "$(config_path)" --all
+
+.PHONY: review-tweets-approved
+review-tweets-approved:  ## Review approved tweets again
+	"./$(_executable)" python -m "$(_python_pkg).review_tweets" \
+		-v --data "$(data_path)" --config "$(config_path)" --approved
 
 .PHONY: copy-reviewed-tweets-to-db
 copy-reviewed-tweets-to-db:  ## Copy reviewed tweets from CSV into the database
