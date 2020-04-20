@@ -38,7 +38,12 @@ parse-lines:  ## Parse matched lines
 .PHONY: review-tweets
 review-tweets:  ## Review created tweets
 	"./$(_executable)" python -m "$(_python_pkg).review_tweets" \
-		-v --data "$(data_path)" --config "$(config_path)"
+		--data "$(data_path)" --config "$(config_path)"
+
+.PHONY: review-tweets-all
+review-tweets-all:  ## Review created tweets
+	"./$(_executable)" python -m "$(_python_pkg).review_tweets" \
+		--data "$(data_path)" --config "$(config_path)" --all
 
 .PHONY: post-tweets
 post-tweets:  ## Post reviewed tweets

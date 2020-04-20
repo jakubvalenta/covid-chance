@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+import readline
 import sys
 from pathlib import Path
 from textwrap import fill
@@ -15,6 +16,15 @@ logger = logging.getLogger(__name__)
 
 REVIEW_STATUS_APPROVED = 'approved'
 REVIEW_STATUS_REJECTED = 'rejected'
+
+
+def rlinput(prompt, prefill: str = '') -> Optional[str]:
+    """See https://stackoverflow.com/a/36607077"""
+    readline.set_startup_hook(lambda: readline.insert_text(prefill))
+    try:
+        return input(prompt)
+    finally:
+        readline.set_startup_hook()
 
 
 def highlight_substr(s: str, substr: str, fg_color: int = 2) -> str:
@@ -39,8 +49,7 @@ def print_tweet(
     i: Optional[int] = None,
     total: Optional[int] = None,
     highlight: bool = False,
-    counter_width: int = 7,
-    status_width: int = 10,
+    counter_width: int = 10,
     line_width: int = 80,
 ):
     print('-' * line_width)
@@ -50,7 +59,7 @@ def print_tweet(
         ),
         end='',
     )
-    print(status.upper().ljust(status_width))
+    print(status.upper())
     print()
     print(tweet['url'])
     print()
@@ -67,6 +76,12 @@ def main():
     parser.add_argument('-d', '--data', help='Data path', default='./data')
     parser.add_argument(
         '-c', '--config', help='Configuration file path', required=True
+    )
+    parser.add_argument(
+        '-a',
+        '--all',
+        action='store_true',
+        help='Review already reviewed tweets again',
     )
     parser.add_argument(
         '-v', '--verbose', action='store_true', help='Enable debugging output'
@@ -108,15 +123,18 @@ def main():
             ]
         ),
     )
-    pending_tweets = [
-        tweet for tweet in tweets if not reviewed_tweets.find(tweet)
-    ]
+    if args.all:
+        pending_tweets = tweets
+    else:
+        pending_tweets = [
+            tweet for tweet in tweets if not reviewed_tweets.find(tweet)
+        ]
     logger.info('Number of tweets to review: %d', len(pending_tweets))
     if not pending_tweets:
         return
     total_pending_tweets = len(pending_tweets)
     for i, tweet in enumerate(pending_tweets):
-        if tweet in reviewed_tweets:
+        if not args.all and tweet in reviewed_tweets:
             print_tweet(tweet, 'reviewed', i=i + 1, total=total_pending_tweets)
             continue
         print_tweet(
@@ -128,7 +146,7 @@ def main():
         )
         inp = None
         while inp is None or (inp not in ('y', 'n', 'e', 'q', 's', '')):
-            inp = input(
+            inp = rlinput(
                 'Do you like this tweet? '
                 '"y" = yes, '
                 '"n" = no, '
@@ -146,10 +164,10 @@ def main():
         elif inp == 'n':
             status = REVIEW_STATUS_REJECTED
         elif inp == 'e':
-            inp_text = None
-            while inp_text is not None:
-                inp_text = input('Enter new text: ')  # TODO: Prefill
-            tweet['text'] = inp_text
+            edited_text = None
+            while not edited_text:
+                edited_text = rlinput('Enter new text: \n> ', tweet['parsed'])
+            tweet['edited'] = edited_text
             status = REVIEW_STATUS_APPROVED
         else:
             raise NotImplementedError('Invalid input')
