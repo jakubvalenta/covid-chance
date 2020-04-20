@@ -4,7 +4,6 @@ import logging
 import readline
 import sys
 from dataclasses import dataclass
-from pathlib import Path
 from textwrap import fill
 from typing import Iterator, Optional
 
@@ -141,6 +140,9 @@ def print_tweet(
         s = tweet.line
     print(fill(s, line_width))
     print()
+    if tweet.edited:
+        print(colored.stylize(tweet.edited, colored.fg('red')))
+        print()
 
 
 def main():
@@ -214,10 +216,10 @@ def main():
         while inp is None or (inp not in ('y', 'n', 'e', 'q', 's', '')):
             inp = rlinput(
                 'Do you like this tweet? '
-                '"y" = yes, '
+                '"y" or Enter = yes, '
                 '"n" = no, '
                 '"e" = edit, '
-                '"s" or nothing = skip (ask next time again), '
+                '"s" = skip (ask next time again), '
                 '"q" = quit \n'
                 '> '
             )
@@ -231,10 +233,16 @@ def main():
             tweet.status = REVIEW_STATUS_REJECTED
         elif inp == 'e':
             edited_text = None
-            while not edited_text:
-                edited_text = rlinput('Enter new text: \n> ', tweet.parsed)
+            while edited_text is None:
+                edited_text = rlinput(
+                    'Enter new text or delete it to reject the tweet.\n> ',
+                    tweet.edited or tweet.parsed,
+                )
             tweet.edited = edited_text
-            tweet.status = REVIEW_STATUS_APPROVED
+            if edited_text == '':
+                tweet.status = REVIEW_STATUS_REJECTED
+            else:
+                tweet.status = REVIEW_STATUS_APPROVED
         else:
             raise NotImplementedError('Invalid input')
         write_reviewed_tweet(conn, table_reviewed, tweet)
