@@ -26,7 +26,17 @@ logger = logging.getLogger(__name__)
 
 def clean_url(
     url: str,
-    remove_keys: Sequence[str] = ('utm_source', 'utm_medium', 'utm_campaign'),
+    remove_keys: Sequence[str] = (
+        'fbclid',
+        'ito',
+        'ns_campaign',
+        'ns_mchannel',
+        'source',
+        'utm_campaign',
+        'utm_medium',
+        'utm_source',
+        'via',
+    ),
 ) -> str:
     u = urllib.parse.urlsplit(url)
     qs = urllib.parse.parse_qs(u.query)

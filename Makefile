@@ -28,17 +28,17 @@ copy-pages-to-db:  ## Copy downloaded pages into the database
 .PHONY: match-lines
 match-lines:  ## Save lines that match patterns from the pages stored in the database
 	"./$(_executable)" python -m "$(_python_pkg).match_lines" \
-		-v --data "$(data_path)" --config "$(config_path)"
+		--data "$(data_path)" --config "$(config_path)"
 
 .PHONY: parse-lines
 parse-lines:  ## Parse matched lines
 	"./$(_executable)" python -m "$(_python_pkg).parse_lines" \
-		-v --data "$(data_path)" --config "$(config_path)"
+		--data "$(data_path)" --config "$(config_path)"
 
 .PHONY: create-tweets
 create-tweets:  ## Create tweets from parsed lines
 	"./$(_executable)" python -m "$(_python_pkg).create_tweets" \
-		-v --data "$(data_path)" --config "$(config_path)"
+		--data "$(data_path)" --config "$(config_path)"
 
 .PHONY: review-tweets
 review-tweets:  ## Review created tweets
@@ -59,6 +59,11 @@ post-one-tweet:  ## Post a single random tweet
 search-websites:  ## Search for website names using DuckDuckGo
 	jq --nul-output '.feeds[].name' "$(config_path)" | \
 		xargs -0 -I{} xdg-open "https://duckduckgo.com/?q={}"
+
+.PHONY: clean-urls
+clean-urls:  ## Clean all URLs in all database tables
+	"./$(_executable)" python -m "$(_python_pkg).clean_urls" \
+		--data "$(data_path)" --config "$(config_path)"
 
 .PHONY: setup
 setup:  ## Create Pipenv virtual environment and install dependencies.
