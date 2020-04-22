@@ -78,8 +78,20 @@ def read_posted_tweets(conn, table: str) -> Iterator[Tweet]:
     cur.close()
 
 
-def format_tweet_text(s: str, page_url: str, template_str: str) -> str:
-    return Template(template_str).substitute(parsed=s, url=page_url)
+def update_profile_description(
+    description: str, secrets: Dict[str, str], dry_run: bool = True
+):
+    if dry_run:
+        logger.warning('This is just a dry run, not calling Twitter API')
+        return False
+    api = twitter.Api(
+        consumer_key=secrets['consumer_key'],
+        consumer_secret=secrets['consumer_secret'],
+        access_token_key=secrets['access_token_key'],
+        access_token_secret=secrets['access_token_secret'],
+    )
+    user = api.UpdateProfile(description=description)
+    logger.warning('Updated profile of user %s', user.name)
 
 
 def post_tweet(text: str, secrets: Dict[str, str], dry_run: bool = True):
@@ -147,9 +159,12 @@ def main():
             logger.warning('ALREADY POSTED %s', tweet.text)
             continue
         pending_tweets.append(tweet)
+    total_approved_tweets = len(approved_tweets)
+    total_posted_tweets = len(posted_tweets)
     total_pending_tweets = len(pending_tweets)
 
-    logger.info('Number of approved tweets: %d', len(approved_tweets))
+    logger.info('Number of approved tweets: %d', total_approved_tweets)
+    logger.info('Number of posted tweets:   %d', total_posted_tweets)
     logger.info('Number of tweets to post:  %d', total_pending_tweets)
 
     if not total_pending_tweets:
@@ -158,22 +173,39 @@ def main():
 
     i = random.randint(0, total_pending_tweets)
     tweet = pending_tweets[i]
-    text = format_tweet_text(
-        tweet.text, tweet.page_url, config['tweet_template']
+    text = Template(config['tweet_template']).substitute(
+        parsed=tweet.text, url=tweet.page_url
     )
-    logger.warning('%d/%d posting: %s', i, total_pending_tweets, text)
-    post_tweet(text, secrets, args.dry_run)
-    if not args.dry_run:
-        db_insert(
-            conn,
-            table_posted,
-            url=tweet.page_url,
-            line=tweet.line,
-            parsed=tweet.parsed,
-            status=tweet.status,
-            edited=tweet.edited,
-            tweet=text,
+
+    try:
+        logger.warning(
+            '%d/%d/%d posting: %s',
+            i,
+            total_pending_tweets,
+            total_approved_tweets,
+            text,
         )
+        post_tweet(text, secrets, args.dry_run)
+
+        description = Template(
+            config['profile_description_template']
+        ).substitute(
+            n_posted=total_posted_tweets + 1, n_approved=total_approved_tweets
+        )
+        logger.warning('Updating profile description: %s', description)
+        update_profile_description(description, secrets, args.dry_run)
+    finally:
+        if not args.dry_run:
+            db_insert(
+                conn,
+                table_posted,
+                url=tweet.page_url,
+                line=tweet.line,
+                parsed=tweet.parsed,
+                status=tweet.status,
+                edited=tweet.edited,
+                tweet=text,
+            )
 
 
 if __name__ == '__main__':
