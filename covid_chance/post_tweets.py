@@ -10,7 +10,7 @@ import psycopg2
 import psycopg2.errorcodes
 import twitter
 
-from covid_chance.db_utils import db_connect
+from covid_chance.db_utils import db_connect, db_insert
 from covid_chance.review_tweets import REVIEW_STATUS_APPROVED, Tweet
 
 logger = logging.getLogger(__name__)
@@ -27,6 +27,7 @@ CREATE TABLE {table} (
   parsed TEXT,
   status TEXT,
   edited TEXT,
+  tweet TEXT,
   inserted TIMESTAMP DEFAULT NOW()
 );
 '''
@@ -44,7 +45,7 @@ def read_approved_tweets(conn, table: str) -> Iterator[Tweet]:
     cur = conn.cursor()
     cur.execute(
         f"SELECT url, line, parsed, status, edited, inserted FROM {table} "
-        "WHERE status = '%s';",
+        "WHERE status = %s",
         (REVIEW_STATUS_APPROVED,),
     )
     for url, line, parsed, status, edited, inserted in cur:
@@ -82,7 +83,6 @@ def format_tweet_text(s: str, page_url: str, template_str: str) -> str:
 
 
 def post_tweet(text: str, secrets: Dict[str, str], dry_run: bool = True):
-    logger.warning('POSTING NOW    %s', text)
     if dry_run:
         logger.warning('This is just a dry run, not calling Twitter API')
         return False
@@ -149,27 +149,31 @@ def main():
         pending_tweets.append(tweet)
     total_pending_tweets = len(pending_tweets)
 
-    logger.info('Number of approved tweets:  %d', len(approved_tweets))
-    logger.info('Number of tweets to review: %d', total_pending_tweets)
+    logger.info('Number of approved tweets: %d', len(approved_tweets))
+    logger.info('Number of tweets to post:  %d', total_pending_tweets)
 
     if not total_pending_tweets:
         logger.warning('Nothing to do, all tweets have already been posted')
         return
 
-    if args.single:
-        random.shuffle(pending_tweets)
-        random_tweet = pending_tweets[0]
-        tweet_text = format_tweet_text(random_tweet, config['tweet_template'])
-        post_tweet(tweet_text, secrets, args.dry_run)
-        posted_tweets.append(random_tweet)
-        return
-    for tweet in pending_tweets:
-        if tweet in posted_tweets:
-            logger.warning('JUST POSTED    %s', tweet.text)
-            continue
-        tweet_text = format_tweet_text(tweet.text, config['tweet_template'])
-        post_tweet(tweet_text, secrets, args.dry_run)
-        posted_tweets.append(tweet)
+    i = random.randint(0, total_pending_tweets)
+    tweet = pending_tweets[i]
+    text = format_tweet_text(
+        tweet.text, tweet.page_url, config['tweet_template']
+    )
+    logger.warning('%d/%d posting: %s', i, total_pending_tweets, text)
+    post_tweet(text, secrets, args.dry_run)
+    if not args.dry_run:
+        db_insert(
+            conn,
+            table_posted,
+            url=tweet.page_url,
+            line=tweet.line,
+            parsed=tweet.parsed,
+            status=tweet.status,
+            edited=tweet.edited,
+            tweet=text,
+        )
 
 
 if __name__ == '__main__':
