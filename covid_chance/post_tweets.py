@@ -78,8 +78,8 @@ def read_posted_tweets(conn, table: str) -> Iterator[Tweet]:
     cur.close()
 
 
-def update_profile_description(
-    description: str, secrets: Dict[str, str], dry_run: bool = True
+def update_profile(
+    name: str, description: str, secrets: Dict[str, str], dry_run: bool = True
 ):
     if dry_run:
         logger.warning('This is just a dry run, not calling Twitter API')
@@ -90,7 +90,7 @@ def update_profile_description(
         access_token_key=secrets['access_token_key'],
         access_token_secret=secrets['access_token_secret'],
     )
-    user = api.UpdateProfile(description=description)
+    user = api.UpdateProfile(name=name, description=description)
     logger.warning('Updated profile of user %s', user.name)
 
 
@@ -179,7 +179,7 @@ def main():
 
     try:
         logger.warning(
-            '%d/%d/%d posting: %s',
+            '%d/%d/%d posting tweet "%s"',
             i,
             total_pending_tweets,
             total_approved_tweets,
@@ -187,13 +187,18 @@ def main():
         )
         post_tweet(text, secrets, args.dry_run)
 
+        name = config['profile_name']
         description = Template(
             config['profile_description_template']
         ).substitute(
             n_posted=total_posted_tweets + 1, n_approved=total_approved_tweets
         )
-        logger.warning('Updating profile description: %s', description)
-        update_profile_description(description, secrets, args.dry_run)
+        logger.warning(
+            'Updating profile, name: "%s", description: "%s"',
+            name,
+            description,
+        )
+        update_profile(name, description, secrets, args.dry_run)
     finally:
         if not args.dry_run:
             db_insert(
