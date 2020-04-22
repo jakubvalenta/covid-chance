@@ -3,30 +3,86 @@ import json
 import logging
 import random
 import sys
-from pathlib import Path
 from string import Template
-from typing import Dict, List
+from typing import Dict, Iterator, List
 
+import psycopg2
+import psycopg2.errorcodes
 import twitter
 
-from covid_chance.review_tweets import (
-    REVIEW_STATUS_APPROVED, get_reviewed_tweets_path,
-)
-from covid_chance.tweet_list import TweetList
+from covid_chance.db_utils import db_connect
+from covid_chance.review_tweets import REVIEW_STATUS_APPROVED, Tweet
 
 logger = logging.getLogger(__name__)
 
 
-def get_posted_tweets_path(data_path: str) -> Path:
-    return Path(data_path) / f'posted_tweets.csv'
+def create_table(conn, table: str):
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            f'''
+CREATE TABLE {table} (
+  url TEXT,
+  line TEXT,
+  parsed TEXT,
+  status TEXT,
+  edited TEXT,
+  inserted TIMESTAMP DEFAULT NOW()
+);
+'''
+        )
+    except psycopg2.ProgrammingError as e:
+        if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
+            pass
+        else:
+            raise
+    conn.commit()
+    cur.close()
 
 
-def format_tweet_text(parsed: str, page_url: str, template_str: str) -> str:
-    return Template(template_str).substitute(parsed=parsed, url=page_url)
+def read_approved_tweets(conn, table: str) -> Iterator[Tweet]:
+    cur = conn.cursor()
+    cur.execute(
+        f"SELECT url, line, parsed, status, edited, inserted FROM {table} "
+        "WHERE status = '%s';",
+        (REVIEW_STATUS_APPROVED,),
+    )
+    for url, line, parsed, status, edited, inserted in cur:
+        yield Tweet(
+            page_url=url,
+            line=line,
+            parsed=parsed,
+            status=status,
+            edited=edited,
+            inserted=inserted,
+        )
+    cur.close()
 
 
-def post_tweet(tweet_text: str, secrets: Dict[str, str], dry_run: bool = True):
-    logger.warning('POSTING NOW    %s', tweet_text)
+def read_posted_tweets(conn, table: str) -> Iterator[Tweet]:
+    cur = conn.cursor()
+    cur.execute(
+        f"SELECT url, line, parsed, status, edited, inserted FROM {table};",
+        (REVIEW_STATUS_APPROVED,),
+    )
+    for url, line, parsed, status, edited, inserted in cur:
+        yield Tweet(
+            page_url=url,
+            line=line,
+            parsed=parsed,
+            status=status,
+            edited=edited,
+            inserted=inserted,
+        )
+    cur.close()
+
+
+def format_tweet_text(s: str, page_url: str, template_str: str) -> str:
+    return Template(template_str).substitute(parsed=s, url=page_url)
+
+
+def post_tweet(text: str, secrets: Dict[str, str], dry_run: bool = True):
+    logger.warning('POSTING NOW    %s', text)
     if dry_run:
         logger.warning('This is just a dry run, not calling Twitter API')
         return False
@@ -36,7 +92,7 @@ def post_tweet(tweet_text: str, secrets: Dict[str, str], dry_run: bool = True):
         access_token_key=secrets['access_token_key'],
         access_token_secret=secrets['access_token_secret'],
     )
-    status = api.PostUpdate(status=tweet_text)
+    status = api.PostUpdate(status=text)
     logger.warning(
         'Posted tweet "%s" as user %s', status.test, status.user.name
     )
@@ -73,19 +129,33 @@ def main():
         config = json.load(f)
     with open(args.secrets, 'r') as f:
         secrets = json.load(f)
-    reviewed_tweets = TweetList(get_reviewed_tweets_path(args.data))
-    posted_tweets = TweetList(get_posted_tweets_path(args.data))
-    pending_tweets: List[Dict[str, str]] = []
-    for tweet in reviewed_tweets:
-        if not tweet['status'] == REVIEW_STATUS_APPROVED:
-            continue
+
+    conn = db_connect(
+        database=config['db']['database'],
+        user=config['db']['user'],
+        password=config['db']['password'],
+    )
+    table_reviewed = config['db']['table_reviewed']
+    table_posted = config['db']['table_posted']
+    create_table(conn, table_posted)
+
+    approved_tweets = list(read_approved_tweets(conn, table_reviewed))
+    posted_tweets = list(read_posted_tweets(conn, table_posted))
+    pending_tweets: List[Tweet] = []
+    for tweet in approved_tweets:
         if tweet in posted_tweets:
-            logger.warning('ALREADY POSTED %s', tweet['tweet'])
+            logger.warning('ALREADY POSTED %s', tweet.text)
             continue
         pending_tweets.append(tweet)
-    if not pending_tweets:
+    total_pending_tweets = len(pending_tweets)
+
+    logger.info('Number of approved tweets:  %d', len(approved_tweets))
+    logger.info('Number of tweets to review: %d', total_pending_tweets)
+
+    if not total_pending_tweets:
         logger.warning('Nothing to do, all tweets have already been posted')
         return
+
     if args.single:
         random.shuffle(pending_tweets)
         random_tweet = pending_tweets[0]
@@ -95,9 +165,9 @@ def main():
         return
     for tweet in pending_tweets:
         if tweet in posted_tweets:
-            logger.warning('JUST POSTED    %s', tweet['tweet'])
+            logger.warning('JUST POSTED    %s', tweet.text)
             continue
-        tweet_text = format_tweet_text(tweet, config['tweet_template'])
+        tweet_text = format_tweet_text(tweet.text, config['tweet_template'])
         post_tweet(tweet_text, secrets, args.dry_run)
         posted_tweets.append(tweet)
 

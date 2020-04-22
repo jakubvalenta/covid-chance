@@ -7,7 +7,6 @@ from typing import Iterator, Sequence
 
 import psycopg2
 import psycopg2.errorcodes
-import regex
 
 from covid_chance.db_utils import db_connect, db_insert, db_select
 from covid_chance.hash_utils import hashobj

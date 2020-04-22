@@ -28,6 +28,10 @@ class Tweet:
     edited: str
     inserted: Optional[str]
 
+    @property
+    def text(self) -> str:
+        return self.edited or self.parsed
+
 
 def create_table(conn, table: str):
     cur = conn.cursor()
@@ -35,7 +39,6 @@ def create_table(conn, table: str):
         cur.execute(
             f'''
 CREATE TABLE {table} (
-  update_id TEXT,
   url TEXT,
   line TEXT,
   parsed TEXT,
@@ -43,7 +46,6 @@ CREATE TABLE {table} (
   edited TEXT,
   inserted TIMESTAMP DEFAULT NOW()
 );
-CREATE INDEX index_{table}_update_id ON {table} (parsed);
 '''
         )
     except psycopg2.ProgrammingError as e:
@@ -173,7 +175,6 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-    import ipdb
 
     conn = db_connect(
         database=config['db']['database'],
