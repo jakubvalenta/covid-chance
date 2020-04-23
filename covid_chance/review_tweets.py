@@ -211,7 +211,9 @@ def main():
     if args.all:
         pending_tweets = tweets
     else:
-        reviewed_tweets_parsed = [t.parsed for t in reviewed_tweets]
+        reviewed_tweets_parsed = [
+            t.parsed for t in reviewed_tweets if t.status
+        ]
         pending_tweets = [
             t for t in tweets if t.parsed not in reviewed_tweets_parsed
         ]
