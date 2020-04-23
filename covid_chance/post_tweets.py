@@ -121,12 +121,6 @@ def main():
         '-s', '--secrets', help='Secrets file path', required=True
     )
     parser.add_argument(
-        '-o',
-        '--one',
-        help='Post a single randomly selected tweet',
-        action='store_true',
-    )
-    parser.add_argument(
         '--dry-run', action='store_true', default=True, help='Dry run'
     )
     parser.add_argument(
