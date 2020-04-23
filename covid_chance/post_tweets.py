@@ -124,6 +124,12 @@ def main():
         '--dry-run', action='store_true', default=True, help='Dry run'
     )
     parser.add_argument(
+        '-i',
+        '--interactive',
+        action='store_true',
+        help='Ask before posting the tweet',
+    )
+    parser.add_argument(
         '-v', '--verbose', action='store_true', help='Enable debugging output'
     )
     args = parser.parse_args()
@@ -179,6 +185,10 @@ def main():
             total_approved_tweets,
             text,
         )
+        inp = input('Are you sure you want to post this tweet? [y/N] ')
+        if inp != 'y':
+            print('Bailing out!')
+            return
         post_tweet(text, secrets, args.dry_run)
 
         name = config['profile_name']
