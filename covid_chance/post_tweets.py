@@ -185,10 +185,11 @@ def main():
             total_approved_tweets,
             text,
         )
-        inp = input('Are you sure you want to post this tweet? [y/N] ')
-        if inp != 'y':
-            print('Bailing out!')
-            return
+        if args.interactive:
+            inp = input('Are you sure you want to post this tweet? [y/N] ')
+            if inp != 'y':
+                print('Bailing out!')
+                return
         post_tweet(text, secrets, args.dry_run)
 
         name = config['profile_name']
