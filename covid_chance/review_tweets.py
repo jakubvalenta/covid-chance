@@ -121,6 +121,7 @@ def print_tweet(
     tweet: Tweet,
     i: Optional[int] = None,
     total: Optional[int] = None,
+    max_tweet_length: int = 280,
     highlight: bool = False,
     counter_width: int = 10,
     line_width: int = 80,
@@ -132,7 +133,17 @@ def print_tweet(
         ),
         end='',
     )
-    print(tweet.status.upper())
+    print(tweet.status.upper(), end='')
+    if len(tweet.text) > max_tweet_length:
+        print(
+            '  ',
+            colored.stylize(
+                f'too long ({len(tweet.text)}/{max_tweet_length})',
+                colored.fg('red'),
+            ),
+            end='',
+        )
+    print()
     print()
     print(tweet.page_url)
     print()
@@ -194,6 +205,9 @@ def main():
     rejected_tweets = [
         t for t in reviewed_tweets if t.status == REVIEW_STATUS_REJECTED
     ]
+    invalid_approved_tweets = [
+        t for t in approved_tweets if len(t.text) > config['max_tweet_length']
+    ]
     if args.all:
         pending_tweets = tweets
     else:
@@ -202,7 +216,9 @@ def main():
             t for t in tweets if t.parsed not in reviewed_tweets_parsed
         ]
         if args.approved:
-            pending_tweets = approved_tweets + pending_tweets
+            pending_tweets += approved_tweets
+        else:
+            pending_tweets += invalid_approved_tweets
     total_pending_tweets = len(pending_tweets)
 
     logger.info('Number of matching lines:   %d', db_count(conn, table_lines))
@@ -212,7 +228,13 @@ def main():
     logger.info('Number of tweets to review: %d', total_pending_tweets)
 
     for i, tweet in enumerate(pending_tweets):
-        print_tweet(tweet, i=i + 1, total=total_pending_tweets, highlight=True)
+        print_tweet(
+            tweet,
+            i=i + 1,
+            total=total_pending_tweets,
+            max_tweet_length=config['max_tweet_length'],
+            highlight=True,
+        )
         inp = None
         while inp is None or (inp not in ('y', 'n', 'e', 'q', 's', '')):
             inp = rlinput(
