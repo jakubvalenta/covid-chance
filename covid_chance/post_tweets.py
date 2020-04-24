@@ -151,12 +151,10 @@ def main():
 
     approved_tweets = list(read_approved_tweets(conn, table_reviewed))
     posted_tweets = list(read_posted_tweets(conn, table_posted))
-    pending_tweets: List[Tweet] = []
-    for tweet in approved_tweets:
-        if tweet in posted_tweets:
-            logger.warning('ALREADY POSTED %s', tweet.text)
-            continue
-        pending_tweets.append(tweet)
+    posted_tweets_parsed = [t.parsed for t in posted_tweets]
+    pending_tweets = [
+        t for t in approved_tweets if t.parsed not in posted_tweets_parsed
+    ]
     total_approved_tweets = len(approved_tweets)
     total_posted_tweets = len(posted_tweets)
     total_pending_tweets = len(pending_tweets)
