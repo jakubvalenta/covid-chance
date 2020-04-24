@@ -106,7 +106,7 @@ def post_tweet(text: str, secrets: Dict[str, str], dry_run: bool = True):
     )
     status = api.PostUpdate(status=text)
     logger.warning(
-        'Posted tweet "%s" as user %s', status.test, status.user.name
+        'Posted tweet "%s" as user %s', status.text, status.user.name
     )
     return True
 
@@ -120,9 +120,7 @@ def main():
     parser.add_argument(
         '-s', '--secrets', help='Secrets file path', required=True
     )
-    parser.add_argument(
-        '--dry-run', action='store_true', default=True, help='Dry run'
-    )
+    parser.add_argument('--dry-run', action='store_true', help='Dry run')
     parser.add_argument(
         '-i',
         '--interactive',
@@ -174,7 +172,7 @@ def main():
     i = random.randint(0, total_pending_tweets)
     tweet = pending_tweets[i]
     text = Template(config['tweet_template']).substitute(
-        parsed=tweet.text, url=tweet.page_url
+        text=tweet.text, url=tweet.page_url
     )
 
     try:

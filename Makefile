@@ -59,13 +59,13 @@ copy-reviewed-tweets-to-db:  ## Copy reviewed tweets from CSV into the database
 post-tweet:  ## Post one random reviewed tweet
 	"./$(_executable)" python -m "$(_python_pkg).post_tweets" \
 		-v --data "$(data_path)" --config "$(config_path)" \
-		--secrets "$(secrets_path)" --dry-run
+		--secrets "$(secrets_path)"
 
 .PHONY: post-tweet-interactive
 post-tweet-interactive:  ## Post one random reviewed tweet (ask before posting)
 	"./$(_executable)" python -m "$(_python_pkg).post_tweets" \
 		-v --data "$(data_path)" --config "$(config_path)" \
-		--secrets "$(secrets_path)" --interactive --dry-run
+		--secrets "$(secrets_path)" --interactive
 
 .PHONY: search-websites
 search-websites:  ## Search for website names using DuckDuckGo
