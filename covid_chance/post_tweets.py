@@ -167,7 +167,7 @@ def main():
         logger.warning('Nothing to do, all tweets have already been posted')
         return
 
-    i = random.randint(0, total_pending_tweets)
+    i = random.randint(0, total_pending_tweets - 1)
     tweet = pending_tweets[i]
     text = Template(config['tweet_template']).substitute(
         text=tweet.text, url=tweet.page_url
