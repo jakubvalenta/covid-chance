@@ -11,7 +11,9 @@ import colored
 import psycopg2
 import psycopg2.errorcodes
 
-from covid_chance.db_utils import db_connect, db_count, db_update_or_insert
+from covid_chance.utils.db_utils import (
+    db_connect, db_count, db_update_or_insert,
+)
 
 logger = logging.getLogger(__name__)
 

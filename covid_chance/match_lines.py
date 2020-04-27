@@ -8,8 +8,8 @@ from typing import Iterator, Sequence
 import psycopg2
 import psycopg2.errorcodes
 
-from covid_chance.db_utils import db_connect, db_insert, db_select
-from covid_chance.hash_utils import hashobj
+from covid_chance.utils.db_utils import db_connect, db_insert, db_select
+from covid_chance.utils.hash_utils import hashobj
 
 logger = logging.getLogger(__name__)
 

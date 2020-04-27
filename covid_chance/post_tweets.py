@@ -4,14 +4,14 @@ import logging
 import random
 import sys
 from string import Template
-from typing import Dict, Iterator, List
+from typing import Dict, Iterator
 
 import psycopg2
 import psycopg2.errorcodes
 import twitter
 
-from covid_chance.db_utils import db_connect, db_insert
 from covid_chance.review_tweets import REVIEW_STATUS_APPROVED, Tweet
+from covid_chance.utils.db_utils import db_connect, db_insert
 
 logger = logging.getLogger(__name__)
 

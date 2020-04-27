@@ -20,11 +20,6 @@ download-archived-feeds:  ## Download pages from those feeds that were retrieved
 	"./$(_executable)" python -m "$(_python_pkg).download_archived_feeds" \
 		-v --data "$(data_path)" --config "$(config_path)"
 
-.PHONY: copy-pages-to-db
-copy-pages-to-db:  ## Copy downloaded pages into the database
-	"./$(_executable)" python -m "$(_python_pkg).copy_pages_to_db" \
-		-v --data "$(data_path)" --config "$(config_path)"
-
 .PHONY: match-lines
 match-lines:  ## Save lines that match patterns from the pages stored in the database
 	"./$(_executable)" python -m "$(_python_pkg).match_lines" \
@@ -49,11 +44,6 @@ review-tweets-all:  ## Review all tweets again
 review-tweets-approved:  ## Review approved tweets again
 	"./$(_executable)" python -m "$(_python_pkg).review_tweets" \
 		-v --data "$(data_path)" --config "$(config_path)" --approved
-
-.PHONY: copy-reviewed-tweets-to-db
-copy-reviewed-tweets-to-db:  ## Copy reviewed tweets from CSV into the database
-	"./$(_executable)" python -m "$(_python_pkg).copy_reviewed_tweets_to_db" \
-		-v --data "$(data_path)" --config "$(config_path)"
 
 .PHONY: post-tweet
 post-tweet:  ## Post one random reviewed tweet

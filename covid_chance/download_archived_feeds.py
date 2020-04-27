@@ -9,7 +9,7 @@ from typing import Iterator
 import luigi
 
 from covid_chance.download_feeds import DownloadFeedPages
-from covid_chance.file_utils import safe_filename
+from covid_chance.utils.file_utils import safe_filename
 
 logger = logging.getLogger(__name__)
 

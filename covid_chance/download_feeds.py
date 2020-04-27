@@ -19,7 +19,7 @@ from bs4 import (
 )
 from bs4.element import Script, Stylesheet, TemplateString
 
-from covid_chance.file_utils import csv_cache, safe_filename
+from covid_chance.utils.file_utils import safe_filename
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +75,7 @@ def download_page(url: str) -> str:
 def download_feed(url: str) -> List[str]:
     logger.info('Downloading feed %s', url)
     # Fetch the feed content using requests, because feedparser seems to have
-    # some trouble with the Basic Auth, because the feed object contains an
-    # error.
+    # some trouble with the Basic Auth -- the feed object contains an error.
     r = requests.get(url)
     feed = feedparser.parse(r.text)
     return [clean_url(entry.link) for entry in feed.entries]
@@ -158,18 +157,12 @@ class SavePageURL(luigi.Task):
     feed_name = luigi.Parameter()
     page_url = luigi.Parameter()
 
-    @staticmethod
-    def get_output_path(data_path, feed_name, page_url) -> Path:
-        return (
-            Path(data_path)
-            / safe_filename(feed_name)
-            / safe_filename(simplify_url(page_url))
-            / 'page_url.txt'
-        )
-
     def output(self):
         return luigi.LocalTarget(
-            self.get_output_path(self.data_path, self.feed_name, self.page_url)
+            Path(self.data_path)
+            / safe_filename(self.feed_name)
+            / safe_filename(simplify_url(self.page_url))
+            / 'page_url.txt'
         )
 
     def run(self):
@@ -182,18 +175,12 @@ class DownloadPageHTML(luigi.Task):
     feed_name = luigi.Parameter()
     page_url = luigi.Parameter()
 
-    @staticmethod
-    def get_output_path(data_path, feed_name, page_url) -> Path:
-        return (
-            Path(data_path)
-            / safe_filename(feed_name)
-            / safe_filename(simplify_url(page_url))
-            / 'page_content.html'
-        )
-
     def output(self):
         return luigi.LocalTarget(
-            self.get_output_path(self.data_path, self.feed_name, self.page_url)
+            Path(self.data_path)
+            / safe_filename(self.feed_name)
+            / safe_filename(simplify_url(self.page_url))
+            / 'page_content.html'
         )
 
     def requires(self):
@@ -214,18 +201,12 @@ class DownloadPageText(luigi.Task):
     feed_name = luigi.Parameter()
     page_url = luigi.Parameter()
 
-    @staticmethod
-    def get_output_path(data_path, feed_name, page_url) -> Path:
-        return (
-            Path(data_path)
-            / safe_filename(feed_name)
-            / safe_filename(simplify_url(page_url))
-            / 'page_content.txt'
-        )
-
     def output(self):
         return luigi.LocalTarget(
-            self.get_output_path(self.data_path, self.feed_name, self.page_url)
+            Path(self.data_path)
+            / safe_filename(self.feed_name)
+            / safe_filename(simplify_url(self.page_url))
+            / 'page_content.txt'
         )
 
     def requires(self):
@@ -238,7 +219,6 @@ class DownloadPageText(luigi.Task):
     def run(self):
         with self.input().open('r') as f:
             html = f.read()
-
         with self.output().open('w') as f:
             text = get_page_text(html)
             f.write(text)
@@ -286,56 +266,38 @@ class DownloadFeedPages(luigi.WrapperTask):
     password = luigi.Parameter()
     table = luigi.Parameter()
 
-    @staticmethod
-    def get_feed_path(
-        data_path: str, feed_name: str, date_second: datetime.date
-    ) -> Path:
-        return (
-            Path(data_path)
-            / safe_filename(feed_name)
-            / f'feed_pages-{date_second.isoformat()}.csv'
+    def read_manual_page_urls(self) -> List[str]:
+        feed_manual_path = (
+            Path(self.data_path)
+            / safe_filename(self.feed_name)
+            / 'feed_pages_manual.csv'
         )
+        if not feed_manual_path.is_file():
+            return []
+        with feed_manual_path.open('r') as f:
+            page_urls = [row[0] for row in csv.reader(f)]
+        return page_urls
 
-    @staticmethod
-    def get_feed_manual_path(data_path: str, feed_name: str) -> Path:
-        return (
-            Path(data_path)
-            / safe_filename(feed_name)
-            / f'feed_pages_manual.csv'
+    def download_feed_page_urls(self) -> List[str]:
+        feed_path = (
+            Path(self.data_path)
+            / safe_filename(self.feed_name)
+            / f'feed_pages-{self.date_second.isoformat()}.csv'
         )
-
-    @classmethod
-    def download_feed(
-        cls,
-        data_path: str,
-        feed_name: str,
-        feed_url: str,
-        date_second: datetime.datetime,
-    ) -> List[str]:
-        feed_manual_path = cls.get_feed_manual_path(data_path, feed_name)
-        if feed_manual_path.is_file():
-            with feed_manual_path.open('r') as f:
-                manual_page_urls = [row[0] for row in csv.reader(f)]
-        else:
-            manual_page_urls = []
-
-        @csv_cache(cls.get_feed_path(data_path, feed_name, date_second))
-        def download_feed_with_cache():
-            if not feed_url:
-                return []
-            page_urls = download_feed(feed_url)
-            return [(page_url,) for page_url in page_urls]
-
-        downloaded_page_urls = [row[0] for row in download_feed_with_cache()]
-
-        return manual_page_urls + downloaded_page_urls
+        if feed_path.is_file():
+            with feed_path.open('r') as f:
+                page_urls = [row[0] for row in csv.reader(f)]
+        elif self.feed_url:
+            page_urls = download_feed(self.feed_url)
+            feed_path.parent.mkdir(parents=True, exist_ok=True)
+            with feed_path.open('w') as f:
+                writer = csv.writer(f, lineterminator='\n')
+                writer.writerows(page_urls)
+        return page_urls
 
     def requires(self):
-        page_urls = self.download_feed(
-            self.data_path, self.feed_name, self.feed_url, self.date_second
-        )
-        for page_url in page_urls:
-            yield SavePageText(
+        return (
+            SavePageText(
                 data_path=self.data_path,
                 feed_name=self.feed_name,
                 page_url=page_url,
@@ -345,6 +307,10 @@ class DownloadFeedPages(luigi.WrapperTask):
                 password=self.password,
                 table=self.table,
             )
+            for page_url in (
+                self.read_manual_page_urls() + self.download_feed_page_urls()
+            )
+        )
 
 
 class DownloadFeeds(luigi.WrapperTask):

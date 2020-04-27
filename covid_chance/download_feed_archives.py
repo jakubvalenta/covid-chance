@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 import luigi
 import requests
 
-from covid_chance.file_utils import safe_filename
+from covid_chance.utils.file_utils import safe_filename
 
 logger = logging.getLogger(__name__)
 
@@ -54,19 +54,11 @@ class DownloadFeedArchive(luigi.Task):
     feed_url = luigi.ListParameter()
     date = luigi.DateParameter()
 
-    @classmethod
-    def get_output_path(
-        cls, data_path: str, feed_name: str, date: datetime.date,
-    ) -> Path:
-        return (
-            Path(data_path)
-            / safe_filename(feed_name)
-            / f'feed_archived-{date.isoformat()}.json'
-        )
-
     def output(self):
         return luigi.LocalTarget(
-            self.get_output_path(self.data_path, self.feed_name, self.date)
+            Path(self.data_path)
+            / safe_filename(self.feed_name)
+            / f'feed_archived-{self.date.isoformat()}.json'
         )
 
     def run(self):
@@ -85,14 +77,16 @@ class DownloadFeedArchives(luigi.WrapperTask):
     date = luigi.DateParameter()
 
     def requires(self):
-        for feed in self.feeds:
-            if feed.get('name') and feed.get('url'):
-                yield DownloadFeedArchive(
-                    data_path=self.data_path,
-                    feed_name=feed['name'],
-                    feed_url=feed['url'],
-                    date=self.date,
-                )
+        return (
+            DownloadFeedArchive(
+                data_path=self.data_path,
+                feed_name=feed['name'],
+                feed_url=feed['url'],
+                date=self.date,
+            )
+            for feed in self.feeds
+            if feed.get('name') and feed.get('url')
+        )
 
 
 class DownloadFeedsArchives(luigi.WrapperTask):
