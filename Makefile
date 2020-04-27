@@ -57,6 +57,11 @@ post-tweet-interactive:  ## Post one random reviewed tweet (ask before posting)
 		-v --data "$(data_path)" --config "$(config_path)" \
 		--secrets "$(secrets_path)" --interactive
 
+.PHONY: print-stats
+print-stats:  ## Print statistics
+	"./$(_executable)" python -m "$(_python_pkg).print_stats" \
+		-v --data "$(data_path)" --config "$(config_path)"
+
 .PHONY: search-websites
 search-websites:  ## Search for website names using DuckDuckGo
 	jq --nul-output '.feeds[].name' "$(config_path)" | \
