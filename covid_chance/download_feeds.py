@@ -76,7 +76,16 @@ def download_feed(url: str) -> List[str]:
     logger.info('Downloading feed %s', url)
     # Fetch the feed content using requests, because feedparser seems to have
     # some trouble with the Basic Auth -- the feed object contains an error.
-    r = requests.get(url)
+    r = requests.get(
+        url,
+        headers={
+            'User-Agent': (
+                'Mozilla/5.0 (X11; Linux x86_64; rv:75.0) '
+                'Gecko/20100101 Firefox/75.0'
+            )
+        },
+    )
+    r.raise_for_status()
     feed = feedparser.parse(r.text)
     return [clean_url(entry.link) for entry in feed.entries]
 
@@ -373,7 +382,7 @@ def main():
         workers=1,
         local_scheduler=True,
         parallel_scheduling=True,
-        log_level='INFO',
+        log_level='WARNING',
     )
 
 

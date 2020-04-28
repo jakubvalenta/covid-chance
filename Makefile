@@ -18,7 +18,7 @@ download-feed-archives:  ## Download feeds from the Internet Archive
 .PHONY: download-archived-feeds
 download-archived-feeds:  ## Download pages from those feeds that were retrieved from the Internet Archive
 	"./$(_executable)" python -m "$(_python_pkg).download_archived_feeds" \
-		-v --data "$(data_path)" --config "$(config_path)"
+		--data "$(data_path)" --config "$(config_path)"
 
 .PHONY: match-lines
 match-lines:  ## Save lines that match patterns from the pages stored in the database
