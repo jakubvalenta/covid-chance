@@ -272,11 +272,10 @@ class DownloadFeedPages(luigi.WrapperTask):
             / safe_filename(self.feed_name)
             / 'feed_pages_manual.csv'
         )
-        if not feed_manual_path.is_file():
-            return []
-        with feed_manual_path.open('r') as f:
-            page_urls = [row[0] for row in csv.reader(f)]
-        return page_urls
+        if feed_manual_path.is_file():
+            with feed_manual_path.open('r') as f:
+                return [row[0] for row in csv.reader(f)]
+        return []
 
     def download_feed_page_urls(self) -> List[str]:
         feed_path = (
@@ -286,14 +285,15 @@ class DownloadFeedPages(luigi.WrapperTask):
         )
         if feed_path.is_file():
             with feed_path.open('r') as f:
-                page_urls = [row[0] for row in csv.reader(f)]
-        elif self.feed_url:
+                return [row[0] for row in csv.reader(f)]
+        if self.feed_url:
             page_urls = download_feed(self.feed_url)
             feed_path.parent.mkdir(parents=True, exist_ok=True)
             with feed_path.open('w') as f:
                 writer = csv.writer(f, lineterminator='\n')
-                writer.writerows(page_urls)
-        return page_urls
+                writer.writerows((page_url,) for page_url in page_urls)
+            return page_urls
+        return []
 
     def requires(self):
         return (
