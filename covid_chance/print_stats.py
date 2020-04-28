@@ -4,7 +4,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, Iterator
+from typing import Iterator
 
 from covid_chance.review_tweets import REVIEW_STATUS_APPROVED
 from covid_chance.utils.db_utils import db_connect
@@ -30,15 +30,15 @@ def calc_feed_stats(
     table_lines: str,
     table_parsed: str,
     table_reviewed: str,
-) -> Dict[str, int]:
+) -> dict:
     page_urls = tuple(
         get_feed_page_urls(data_path, feed_name)
-    )  # Must be a touble because of psycopg2
+    )  # Must be a tuple because of psycopg2
     n_pages = len(page_urls)
     if n_pages:
         cur.execute(
-            f'SELECT COUNT(*) FROM {table_lines} WHERE url IN %s;',
-            (page_urls,),
+            f'SELECT COUNT(*) FROM {table_lines} WHERE line != %s AND url IN %s;',
+            ('', page_urls,),
         )
         n_lines = int(cur.fetchone()[0])
     else:
