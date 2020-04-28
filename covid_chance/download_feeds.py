@@ -3,11 +3,13 @@ import csv
 import datetime
 import json
 import logging
+import random
 import re
 import sys
+import time
 import urllib.parse
 from pathlib import Path
-from typing import Iterator, List, Sequence, Type
+from typing import Iterator, List, Sequence, Tuple, Type
 
 import feedparser
 import luigi
@@ -55,8 +57,10 @@ def simplify_url(url: str) -> str:
     return urllib.parse.urlunsplit(('', netloc, u.path, u.query, ''))
 
 
-def download_page(url: str) -> str:
-    logger.info('Downloading page %s', url)
+def download_page(url: str, wait_interval: Tuple[int, int] = (1, 8)) -> str:
+    wait = random.randint(*wait_interval)
+    logger.info('Downloading page in %ss %s', wait, url)
+    time.sleep(wait)
     res = requests.get(
         url,
         headers={
