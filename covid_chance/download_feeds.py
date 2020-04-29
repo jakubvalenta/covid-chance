@@ -57,7 +57,7 @@ def simplify_url(url: str) -> str:
     return urllib.parse.urlunsplit(('', netloc, u.path, u.query, ''))
 
 
-def download_page(url: str, wait_interval: Tuple[int, int] = (1, 8)) -> str:
+def download_page(url: str, wait_interval: Tuple[int, int] = (1, 5)) -> str:
     wait = random.randint(*wait_interval)
     logger.info('Downloading page in %ss %s', wait, url)
     time.sleep(wait)
