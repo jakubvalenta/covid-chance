@@ -20,6 +20,7 @@ from bs4 import (
 )
 from bs4.element import Script, Stylesheet, TemplateString
 
+from covid_chance.download_feeds import clean_url
 from covid_chance.utils.file_utils import safe_filename
 
 logger = logging.getLogger(__name__)
@@ -242,7 +243,7 @@ class DownloadFeedPages(luigi.WrapperTask):
         ):
             with p.open('r') as f:
                 for (page_url,) in csv.reader(f):
-                    page_urls.add(page_url)
+                    page_urls.add(clean_url(page_url))
         return page_urls
 
     def requires(self):
