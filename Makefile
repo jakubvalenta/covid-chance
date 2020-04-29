@@ -6,19 +6,24 @@ config_path ?= $(HOME)/.config/covid-chance/config.json
 secrets_path ?= $(HOME)/.config/covid-chance/secrets.json
 
 .PHONY: download-feeds
-download-feeds:  ## Download pages from feeds
+download-feeds:  ## Download feeds
 	"./$(_executable)" python -m "$(_python_pkg).download_feeds" \
 		-v --data "$(data_path)" --config "$(config_path)"
 
 .PHONY: download-feed-archives
-download-feed-archives:  ## Download feeds from the Internet Archive
+download-feed-archives:  ## Download URLs of feeds archived in the Internet Archive
 	"./$(_executable)" python -m "$(_python_pkg).download_feed_archives" \
 		-v --data "$(data_path)" --config "$(config_path)"
 
 .PHONY: download-archived-feeds
-download-archived-feeds:  ## Download pages from those feeds that were retrieved from the Internet Archive
+download-archived-feeds:  ## Download feeds from the Internet Archive
 	"./$(_executable)" python -m "$(_python_pkg).download_archived_feeds" \
-		--data "$(data_path)" --config "$(config_path)"
+		-v --data "$(data_path)" --config "$(config_path)"
+
+.PHONY: download-pages
+download-pages:  ## Download pages for all downloaded feeds
+	"./$(_executable)" python -m "$(_python_pkg).download_pages" \
+		-v --data "$(data_path)" --config "$(config_path)"
 
 .PHONY: match-lines
 match-lines:  ## Save lines that match patterns from the pages stored in the database

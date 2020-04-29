@@ -37,7 +37,8 @@ def calc_feed_stats(
     n_pages = len(page_urls)
     if n_pages:
         cur.execute(
-            f'SELECT COUNT(*) FROM {table_lines} WHERE line != %s AND url IN %s;',
+            f'SELECT COUNT(*) FROM {table_lines} '
+            'WHERE line != %s AND url IN %s;',
             ('', page_urls,),
         )
         n_lines = int(cur.fetchone()[0])
