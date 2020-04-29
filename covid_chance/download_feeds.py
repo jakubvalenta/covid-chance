@@ -38,7 +38,7 @@ def clean_url(
             del qs[k]
     new_query = urllib.parse.urlencode(qs, doseq=True)
     return urllib.parse.urlunsplit(
-        (u.scheme, u.netloc, u.path, new_query, u.fragment)
+        (u.scheme or 'https', u.netloc, u.path, new_query, u.fragment)
     )
 
 
