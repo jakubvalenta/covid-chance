@@ -244,6 +244,7 @@ class DownloadFeedPages(luigi.WrapperTask):
             with p.open('r') as f:
                 for (page_url,) in csv.reader(f):
                     page_urls.add(clean_url(page_url))
+        logger.info('%s %d pages', self.feed_name.ljust(40), len(page_urls))
         return page_urls
 
     def requires(self):
