@@ -67,6 +67,11 @@ print-stats:  ## Print statistics
 	"./$(_executable)" python -m "$(_python_pkg).print_stats" \
 		-v --data "$(data_path)" --config "$(config_path)"
 
+.PHONY: move-pages
+move-pages:  ## Move pages that were saved to directories with unclean URLs
+	"./$(_executable)" python -m "$(_python_pkg).move_pages" \
+		-v --data "$(data_path)" --config "$(config_path)"
+
 .PHONY: search-websites
 search-websites:  ## Search for website names using DuckDuckGo
 	jq --nul-output '.feeds[].name' "$(config_path)" | \
