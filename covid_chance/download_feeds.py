@@ -92,7 +92,7 @@ def main():
         config = json.load(f)
     luigi.build(
         [DownloadFeeds(data_path=args.data, feeds=config['feeds'])],
-        workers=1,
+        workers=6,
         local_scheduler=True,
         parallel_scheduling=True,
         log_level='WARNING',
