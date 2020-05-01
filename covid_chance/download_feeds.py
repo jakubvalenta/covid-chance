@@ -4,42 +4,18 @@ import datetime
 import json
 import logging
 import sys
-import urllib.parse
 from pathlib import Path
-from typing import List, Sequence
+from typing import List
 
 import feedparser
 import luigi
 import requests
 
+from covid_chance.download_pages import SavePageText
+from covid_chance.utils.download_utils import clean_url
 from covid_chance.utils.file_utils import safe_filename
 
 logger = logging.getLogger(__name__)
-
-
-def clean_url(
-    url: str,
-    remove_keys: Sequence[str] = (
-        'fbclid',
-        'ito',
-        'ns_campaign',
-        'ns_mchannel',
-        'source',
-        'utm_campaign',
-        'utm_medium',
-        'utm_source',
-        'via',
-    ),
-) -> str:
-    u = urllib.parse.urlsplit(url)
-    qs = urllib.parse.parse_qs(u.query)
-    for k in remove_keys:
-        if k in qs:
-            del qs[k]
-    new_query = urllib.parse.urlencode(qs, doseq=True)
-    return urllib.parse.urlunsplit(
-        (u.scheme or 'https', u.netloc, u.path, new_query, u.fragment)
-    )
 
 
 def download_feed(url: str) -> List[str]:
@@ -66,6 +42,12 @@ class DownloadFeed(luigi.Task):
     feed_url = luigi.Parameter()
     date_second = luigi.DateSecondParameter()
 
+    host = luigi.Parameter()
+    database = luigi.Parameter()
+    user = luigi.Parameter()
+    password = luigi.Parameter()
+    table = luigi.Parameter()
+
     def output(self):
         return luigi.LocalTarget(
             Path(self.data_path)
@@ -78,12 +60,29 @@ class DownloadFeed(luigi.Task):
         with self.output().open('w') as f:
             writer = csv.writer(f, lineterminator='\n')
             writer.writerows((page_url,) for page_url in page_urls)
+        for page_url in page_urls:
+            yield SavePageText(
+                data_path=self.data_path,
+                feed_name=self.feed_name,
+                page_url=page_url,
+                host=self.host,
+                database=self.database,
+                user=self.user,
+                password=self.password,
+                table=self.table,
+            )
 
 
 class DownloadFeeds(luigi.WrapperTask):
     data_path = luigi.Parameter()
     feeds = luigi.ListParameter()
     date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
+
+    host = luigi.Parameter()
+    database = luigi.Parameter()
+    user = luigi.Parameter()
+    password = luigi.Parameter()
+    table = luigi.Parameter()
 
     def requires(self):
         return (
@@ -92,6 +91,11 @@ class DownloadFeeds(luigi.WrapperTask):
                 feed_name=feed['name'],
                 feed_url=feed['url'],
                 date_second=self.date_second,
+                host=self.host,
+                database=self.database,
+                user=self.user,
+                password=self.password,
+                table=self.table,
             )
             for feed in self.feeds
             if feed.get('name') and feed.get('url')
@@ -115,7 +119,17 @@ def main():
     with open(args.config, 'r') as f:
         config = json.load(f)
     luigi.build(
-        [DownloadFeeds(data_path=args.data, feeds=config['feeds'])],
+        [
+            DownloadFeeds(
+                data_path=args.data,
+                feeds=config['feeds'],
+                host=config['db']['host'],
+                database=config['db']['database'],
+                user=config['db']['user'],
+                password=config['db']['password'],
+                table=config['db']['table_pages'],
+            )
+        ],
         workers=1,
         local_scheduler=True,
         parallel_scheduling=True,

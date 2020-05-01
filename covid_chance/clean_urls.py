@@ -4,8 +4,8 @@ import logging
 import sys
 from typing import Iterator, Sequence
 
-from covid_chance.download_feeds import clean_url
 from covid_chance.utils.db_utils import db_connect
+from covid_chance.utils.download_utils import clean_url
 
 logger = logging.getLogger(__name__)
 
