@@ -32,7 +32,9 @@ def simplify_url(url: str) -> str:
     return urllib.parse.urlunsplit(('', netloc, u.path, u.query, ''))
 
 
-def download_page(url: str, wait_interval: Tuple[int, int] = (1, 5)) -> str:
+def download_page(
+    url: str, wait_interval: Tuple[int, int] = (1, 2), timeout: int = 2
+) -> str:
     wait = random.randint(*wait_interval)
     logger.info('Downloading page in %ss %s', wait, url)
     time.sleep(wait)
@@ -44,6 +46,7 @@ def download_page(url: str, wait_interval: Tuple[int, int] = (1, 5)) -> str:
                 'Gecko/20100101 Firefox/75.0'
             )
         },
+        timeout=timeout,
     )
     if res.status_code == requests.codes.not_found:
         return ''
@@ -244,7 +247,18 @@ class DownloadFeedPages(luigi.WrapperTask):
             with p.open('r') as f:
                 for (page_url,) in csv.reader(f):
                     page_urls.add(clean_url(page_url))
-        logger.info('%s %d pages', self.feed_name.ljust(40), len(page_urls))
+        missing = 0
+        for page_url in page_urls:
+            page_content_path = (
+                Path(self.data_path)
+                / safe_filename(self.feed_name)
+                / safe_filename(simplify_url(page_url))
+                / 'page_content.html'
+            )
+            if not page_content_path.exists():
+                missing += 1
+        if missing:
+            logger.info('"%s",%d', self.feed_name, missing)
         return page_urls
 
     def requires(self):
