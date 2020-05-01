@@ -21,13 +21,15 @@ def create_table(conn, table: str):
         cur.execute(
             f'''
 CREATE TABLE {table} (
-  update_id TEXT,
-  url TEXT,
-  line TEXT,
-  parsed TEXT,
-  inserted TIMESTAMP DEFAULT NOW()
+  url text,
+  line text,
+  parsed text,
+  param_hash text,
+  inserted timestamp DEFAULT NOW()
 );
-CREATE INDEX index_{table}_update_id ON {table} (update_id);
+CREATE INDEX index_{table}_line ON {table} (line);
+CREATE INDEX index_{table}_parsed ON {table} (parsed);
+CREATE INDEX index_{table}_param_hash ON {table} (param_hash);
 '''
         )
     except psycopg2.ProgrammingError as e:
@@ -65,8 +67,8 @@ def get_lines(conn, table: str) -> Iterator[tuple]:
 def parse_lines_one(
     conn, table: str, i: int, page_url: str, line: str, parse_pattern: str, rx
 ):
-    update_id = hashobj(line, parse_pattern)
-    if db_select(conn, table, update_id=update_id):
+    param_hash = hashobj(parse_pattern)
+    if db_select(conn, table, line=line, param_hash=param_hash):
         logger.info('%d done %s', i, page_url)
         return
     logger.warning('%d todo %s', i, page_url)
@@ -74,10 +76,10 @@ def parse_lines_one(
         db_insert(
             conn,
             table,
-            update_id=update_id,
             url=page_url,
             line=line,
             parsed=parsed,
+            param_hash=param_hash,
         )
 
 

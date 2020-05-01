@@ -20,11 +20,14 @@ def create_table(conn, table: str):
         cur.execute(
             f'''
 CREATE TABLE {table} (
-  url TEXT,
-  line TEXT,
-  match_line_hash TEXT,
-  inserted TIMESTAMP DEFAULT NOW()
+  url text,
+  line text,
+  param_hash text,
+  inserted timestamp DEFAULT NOW()
 );
+CREATE INDEX index_{table}_line ON {table} (line);
+CREATE INDEX index_{table}_url ON {table} (url);
+CREATE INDEX index_{table}_param_hash ON {table} (param_hash);
 '''
         )
     except psycopg2.ProgrammingError as e:
@@ -43,16 +46,19 @@ def get_pages(conn, table: str) -> Iterator[tuple]:
     cur.close()
 
 
-def contains_any_substr(s: str, substrs: Sequence[str]) -> bool:
-    for substr in substrs:
-        if substr in s.lower():
+def contains_any_keyword(s: str, keyword_list: Sequence[str]) -> bool:
+    s_lower = s.lower()
+    for keyword in keyword_list:
+        if keyword in s_lower:
             return True
     return False
 
 
-def contains_all_substr_groups(s: str, groups: Sequence[Sequence[str]]):
-    for substrs in groups:
-        if not contains_any_substr(s, substrs):
+def contains_keyword_from_each_list(
+    s: str, keyword_lists: Sequence[Sequence[str]]
+):
+    for keyword_list in keyword_lists:
+        if not contains_any_keyword(s, keyword_list):
             return False
     return True
 
@@ -63,34 +69,29 @@ def match_page_lines(
     i: int,
     page_url: str,
     page_text: str,
-    match_line: Sequence[Sequence[str]],
-    match_line_hash: str,
+    keyword_lists: Sequence[Sequence[str]],
+    param_hash: str,
 ):
-    if db_select(conn, table, url=page_url, match_line_hash=match_line_hash):
+    if db_select(conn, table, url=page_url, param_hash=param_hash):
         logger.info('%d done %s', i, page_url)
         return
     logger.warning('%d todo %s', i, page_url)
     cur = conn.cursor()
     inserted = False
     for line in page_text.splitlines():
-        if contains_all_substr_groups(line, match_line):
+        if contains_keyword_from_each_list(line, keyword_lists):
             db_insert(
                 conn,
                 table,
                 cur=cur,
                 url=page_url,
                 line=line.strip(),
-                match_line_hash=match_line_hash,
+                param_hash=param_hash,
             )
             inserted = True
     if not inserted:
         db_insert(
-            conn,
-            table,
-            cur=cur,
-            url=page_url,
-            line='',
-            match_line_hash=match_line_hash,
+            conn, table, cur=cur, url=page_url, line='', param_hash=param_hash,
         )
     conn.commit()
     cur.close()
@@ -98,11 +99,11 @@ def match_page_lines(
 
 def match_lines(
     conn,
-    match_line: Sequence[Sequence[str]],
+    keyword_lists: Sequence[Sequence[str]],
     table_lines: str,
     table_pages: str,
 ):
-    match_line_hash = hashobj(match_line)
+    param_hash = hashobj(keyword_lists)
     create_table(conn, table_lines)
     with ThreadPoolExecutor() as executor:
         futures = [
@@ -113,8 +114,8 @@ def match_lines(
                 i,
                 page_url,
                 page_text,
-                match_line,
-                match_line_hash,
+                keyword_lists,
+                param_hash,
             )
             for i, (page_url, page_text) in enumerate(
                 get_pages(conn, table_pages)
@@ -147,7 +148,7 @@ def main():
     )
     match_lines(
         conn,
-        match_line=config['match_line'],
+        keyword_lists=config['keyword_lists'],
         table_lines=config['db']['table_lines'],
         table_pages=config['db']['table_pages'],
     )

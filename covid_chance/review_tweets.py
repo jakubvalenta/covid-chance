@@ -41,13 +41,16 @@ def create_table(conn, table: str):
         cur.execute(
             f'''
 CREATE TABLE {table} (
-  url TEXT,
-  line TEXT,
-  parsed TEXT,
-  status TEXT,
-  edited TEXT,
-  inserted TIMESTAMP DEFAULT NOW()
+  url text,
+  line text,
+  parsed text,
+  status text,
+  edited text,
+  inserted timestamp DEFAULT NOW()
 );
+CREATE INDEX index_{table}_url ON {table} (url);
+CREATE INDEX index_{table}_line ON {table} (line);
+CREATE INDEX index_{table}_parsed ON {table} (parsed);
 '''
         )
     except psycopg2.ProgrammingError as e:

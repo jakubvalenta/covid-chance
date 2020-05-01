@@ -25,6 +25,11 @@ download-pages:  ## Download pages for all downloaded feeds
 	"./$(_executable)" python -m "$(_python_pkg).download_pages" \
 		-v --data "$(data_path)" --config "$(config_path)"
 
+.PHONY: copy-pages-to-db
+copy-pages-to-db:  ## Copy downloaded pages into the database
+	"./$(_executable)" python -m "$(_python_pkg).copy_pages_to_db" \
+		-v --data "$(data_path)" --config "$(config_path)"
+
 .PHONY: match-lines
 match-lines:  ## Save lines that match patterns from the pages stored in the database
 	"./$(_executable)" python -m "$(_python_pkg).match_lines" \
