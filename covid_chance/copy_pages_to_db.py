@@ -9,7 +9,7 @@ from typing import Dict, Iterable, Optional, cast
 import psycopg2
 import psycopg2.errorcodes
 
-from covid_chance.utils.db_utils import db_connect, db_insert
+from covid_chance.utils.db_utils import db_connect, db_insert, db_select
 from covid_chance.utils.download_utils import clean_url
 from covid_chance.utils.file_utils import safe_filename
 
@@ -26,6 +26,7 @@ CREATE TABLE {table} (
   text text,
   inserted timestamp DEFAULT NOW()
 );
+CREATE INDEX index_{table}_url ON {table} (url);
 '''
         )
     except psycopg2.ProgrammingError as e:
@@ -62,6 +63,8 @@ def copy_feed_pages_to_db(conn, table: str, data_path: str, feed_name: str):
             continue
         page_url = read_page_url(page_dir)
         if not page_url:
+            continue
+        if db_select(conn, table, url=page_url):
             continue
         page_content = read_page_content(page_dir)
         if not page_content:
