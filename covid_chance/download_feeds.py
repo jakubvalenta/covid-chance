@@ -11,14 +11,13 @@ import feedparser
 import luigi
 import requests
 
-from covid_chance.download_pages import SavePageText
 from covid_chance.utils.download_utils import clean_url
 from covid_chance.utils.file_utils import safe_filename
 
 logger = logging.getLogger(__name__)
 
 
-def download_feed(url: str) -> List[str]:
+def download_feed(url: str, timeout: int = 10) -> List[str]:
     logger.info('Downloading feed %s', url)
     # Fetch the feed content using requests, because feedparser seems to have
     # some trouble with the Basic Auth -- the feed object contains an error.
@@ -30,6 +29,7 @@ def download_feed(url: str) -> List[str]:
                 'Gecko/20100101 Firefox/75.0'
             )
         },
+        timeout=timeout,
     )
     r.raise_for_status()
     feed = feedparser.parse(r.text)
@@ -41,12 +41,6 @@ class DownloadFeed(luigi.Task):
     feed_name = luigi.Parameter()
     feed_url = luigi.Parameter()
     date_second = luigi.DateSecondParameter()
-
-    host = luigi.Parameter()
-    database = luigi.Parameter()
-    user = luigi.Parameter()
-    password = luigi.Parameter()
-    table = luigi.Parameter()
 
     def output(self):
         return luigi.LocalTarget(
@@ -60,29 +54,12 @@ class DownloadFeed(luigi.Task):
         with self.output().open('w') as f:
             writer = csv.writer(f, lineterminator='\n')
             writer.writerows((page_url,) for page_url in page_urls)
-        for page_url in page_urls:
-            yield SavePageText(
-                data_path=self.data_path,
-                feed_name=self.feed_name,
-                page_url=page_url,
-                host=self.host,
-                database=self.database,
-                user=self.user,
-                password=self.password,
-                table=self.table,
-            )
 
 
 class DownloadFeeds(luigi.WrapperTask):
     data_path = luigi.Parameter()
     feeds = luigi.ListParameter()
     date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
-
-    host = luigi.Parameter()
-    database = luigi.Parameter()
-    user = luigi.Parameter()
-    password = luigi.Parameter()
-    table = luigi.Parameter()
 
     def requires(self):
         return (
@@ -91,11 +68,6 @@ class DownloadFeeds(luigi.WrapperTask):
                 feed_name=feed['name'],
                 feed_url=feed['url'],
                 date_second=self.date_second,
-                host=self.host,
-                database=self.database,
-                user=self.user,
-                password=self.password,
-                table=self.table,
             )
             for feed in self.feeds
             if feed.get('name') and feed.get('url')
@@ -119,17 +91,7 @@ def main():
     with open(args.config, 'r') as f:
         config = json.load(f)
     luigi.build(
-        [
-            DownloadFeeds(
-                data_path=args.data,
-                feeds=config['feeds'],
-                host=config['db']['host'],
-                database=config['db']['database'],
-                user=config['db']['user'],
-                password=config['db']['password'],
-                table=config['db']['table_pages'],
-            )
-        ],
+        [DownloadFeeds(data_path=args.data, feeds=config['feeds'])],
         workers=1,
         local_scheduler=True,
         parallel_scheduling=True,

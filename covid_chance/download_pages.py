@@ -26,22 +26,31 @@ logger = logging.getLogger(__name__)
 
 
 def download_page(
-    url: str, wait_interval: Tuple[int, int] = (1, 2), timeout: int = 2
+    url: str,
+    wait_interval: Tuple[int, int] = (1, 2),
+    timeout: int = 2,
+    non_recoverable_error_codes: Sequence[int] = (
+        requests.codes.not_found,
+        requests.codes.legal_reasons,
+    ),
 ) -> str:
     wait = random.randint(*wait_interval)
     logger.info('Downloading page in %ss %s', wait, url)
     time.sleep(wait)
-    res = requests.get(
-        url,
-        headers={
-            'User-Agent': (
-                'Mozilla/5.0 (X11; Linux x86_64; rv:75.0) '
-                'Gecko/20100101 Firefox/75.0'
-            )
-        },
-        timeout=timeout,
-    )
-    if res.status_code == requests.codes.not_found:
+    try:
+        res = requests.get(
+            url,
+            headers={
+                'User-Agent': (
+                    'Mozilla/5.0 (X11; Linux x86_64; rv:75.0) '
+                    'Gecko/20100101 Firefox/75.0'
+                )
+            },
+            timeout=timeout,
+        )
+    except requests.TooManyRedirects:
+        return ''
+    if res.status_code in non_recoverable_error_codes:
         return ''
     res.raise_for_status()
     return res.text
@@ -232,11 +241,17 @@ class DownloadFeedPages(luigi.WrapperTask):
     password = luigi.Parameter()
     table = luigi.Parameter()
 
+    limit = luigi.NumericalParameter(
+        var_type=int, min_value=0, max_value=999, default=3
+    )
+
     def read_page_urls(self) -> Set[str]:
+        feed_dir = Path(self.data_path) / safe_filename(self.feed_name)
         page_urls = set()
-        for p in (Path(self.data_path) / safe_filename(self.feed_name)).glob(
-            'feed_pages*.csv'
-        ):
+        paths = sorted(feed_dir.glob('feed_pages*.csv'))
+        if self.limit:
+            paths = paths[: -self.limit]
+        for p in paths:
             with p.open('r') as f:
                 for (page_url,) in csv.reader(f):
                     page_urls.add(clean_url(page_url))
@@ -254,7 +269,9 @@ class DownloadFeedPages(luigi.WrapperTask):
             if not page_content_path.exists():
                 missing += 1
         if missing:
-            logger.info('"%s",%d', self.feed_name, missing)
+            logger.info(
+                '"%s",%d / %d', self.feed_name, missing, len(page_urls)
+            )
         return page_urls
 
     def requires(self):
