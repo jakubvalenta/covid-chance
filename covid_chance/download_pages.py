@@ -250,7 +250,7 @@ class DownloadFeedPages(luigi.WrapperTask):
         page_urls = set()
         paths = sorted(feed_dir.glob('feed_pages*.csv'))
         if self.limit:
-            paths = paths[: -self.limit]
+            paths = paths[-self.limit :]
         for p in paths:
             with p.open('r') as f:
                 for (page_url,) in csv.reader(f):
