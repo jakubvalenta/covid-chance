@@ -6,7 +6,7 @@ import os
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Iterable, Optional, Set
+from typing import Dict, Iterable, Iterator, Optional, Set, Tuple, cast
 
 from covid_chance.download_feeds import clean_url, safe_filename
 from covid_chance.download_pages import simplify_url
@@ -38,17 +38,23 @@ def move_feed_page(feed_dir: Path, clean_page_url: str, page_urls: Set[str]):
     return False
 
 
-def move_feed_pages(data_path: str, feed_name: Optional[str]):
-    if not feed_name:
-        return
+def move_feed_pages(data_path: str, feed_name: str) -> int:
     feed_dir = Path(data_path) / safe_filename(feed_name)
+    missing = 0
     for clean_page_url, page_urls in read_page_urls(feed_dir).items():
-        move_feed_page(feed_dir, clean_page_url, page_urls)
+        if not move_feed_page(feed_dir, clean_page_url, page_urls):
+            missing += 1
+    return missing
 
 
-def move_pages(data_path: str, feeds: Iterable[Dict[str, Optional[str]]]):
+def move_pages(
+    data_path: str, feeds: Iterable[Dict[str, Optional[str]]]
+) -> Iterator[Tuple[str, int]]:
     for feed in feeds:
-        move_feed_pages(data_path, feed.get('name'))
+        if feed.get('name'):
+            feed_name = cast(str, feed['name'])
+            missing = move_feed_pages(data_path, feed_name)
+            yield feed_name, missing
 
 
 def main():
@@ -67,7 +73,21 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-    move_pages(data_path=args.data, feeds=config['feeds'])
+
+    stats = move_pages(data_path=args.data, feeds=config['feeds'])
+
+    writer = csv.DictWriter(
+        sys.stdout,
+        fieldnames=('feed_name', 'n_pages_to_download',),
+        quoting=csv.QUOTE_NONNUMERIC,
+        lineterminator='\n',
+    )
+    writer.writeheader()
+    writer.writerows(
+        {'feed_name': feed_name, 'n_pages_to_download': missing}
+        for feed_name, missing in stats
+        if missing
+    )
 
 
 if __name__ == '__main__':

@@ -67,9 +67,9 @@ print-stats:  ## Print statistics
 	"./$(_executable)" python -m "$(_python_pkg).print_stats" \
 		-v --data "$(data_path)" --config "$(config_path)"
 
-.PHONY: move-pages
-move-pages:  ## Move pages that were saved to directories with unclean URLs
-	"./$(_executable)" python -m "$(_python_pkg).move_pages" \
+.PHONY: clean-pages
+clean-pages:  ## Move pages that were saved to directories with unclean URLs and print some stats
+	"./$(_executable)" python -m "$(_python_pkg).clean_pages" \
 		-v --data "$(data_path)" --config "$(config_path)"
 
 .PHONY: search-websites
