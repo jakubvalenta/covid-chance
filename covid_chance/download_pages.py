@@ -173,9 +173,10 @@ class DownloadPageHTML(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            get_page_content_path(
-                self.data_path, self.feed_name, self.page_url
-            )
+            Path(self.data_path)
+            / safe_filename(self.feed_name)
+            / safe_filename(simplify_url(self.page_url))
+            / 'page_content.html'
         )
 
     def requires(self):
