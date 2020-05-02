@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 
 def download_page(
     url: str,
-    wait_interval: Tuple[int, int] = (1, 2),
-    timeout: int = 2,
+    wait_interval: Tuple[int, int] = (0, 0),
+    timeout: int = 10,
     non_recoverable_error_codes: Sequence[int] = (
         requests.codes.not_found,
         requests.codes.legal_reasons,
@@ -35,7 +35,8 @@ def download_page(
 ) -> str:
     wait = random.randint(*wait_interval)
     logger.info('Downloading page in %ss %s', wait, url)
-    time.sleep(wait)
+    if wait:
+        time.sleep(wait)
     try:
         res = requests.get(
             url,
@@ -149,6 +150,16 @@ class DownloadPageHTML(luigi.Task):
     feed_name = luigi.Parameter()
     page_url = luigi.Parameter()
 
+    wait_lower = luigi.NumericalParameter(
+        var_type=int, min_value=0, max_value=99, significant=False
+    )
+    wait_upper = luigi.NumericalParameter(
+        var_type=int, min_value=5, max_value=99, significant=False
+    )
+    timeout = luigi.NumericalParameter(
+        var_type=int, min_value=0, max_value=99, significant=False
+    )
+
     def output(self):
         return luigi.LocalTarget(
             Path(self.data_path)
@@ -166,7 +177,11 @@ class DownloadPageHTML(luigi.Task):
 
     def run(self):
         with self.output().open('w') as f:
-            html = download_page(self.page_url)
+            html = download_page(
+                self.page_url,
+                wait_interval=(self.wait_lower, self.wait_upper),
+                timeout=self.timeout,
+            )
             f.write(html)
 
 
@@ -174,6 +189,16 @@ class DownloadPageText(luigi.Task):
     data_path = luigi.Parameter()
     feed_name = luigi.Parameter()
     page_url = luigi.Parameter()
+
+    wait_lower = luigi.NumericalParameter(
+        var_type=int, min_value=0, max_value=99, significant=False
+    )
+    wait_upper = luigi.NumericalParameter(
+        var_type=int, min_value=5, max_value=99, significant=False
+    )
+    timeout = luigi.NumericalParameter(
+        var_type=int, min_value=0, max_value=99, significant=False
+    )
 
     def output(self):
         return luigi.LocalTarget(
@@ -188,6 +213,9 @@ class DownloadPageText(luigi.Task):
             data_path=self.data_path,
             feed_name=self.feed_name,
             page_url=self.page_url,
+            wait_lower=self.wait_lower,
+            wait_upper=self.wait_upper,
+            timeout=self.timeout,
         )
 
     def run(self):
@@ -204,8 +232,15 @@ class DownloadFeedPages(luigi.WrapperTask):
     feed_url = luigi.Parameter()
     date_second = luigi.DateSecondParameter()
 
-    limit = luigi.NumericalParameter(
-        var_type=int, min_value=0, max_value=999, default=3
+    limit = luigi.NumericalParameter(var_type=int, min_value=0, max_value=999)
+    wait_lower = luigi.NumericalParameter(
+        var_type=int, min_value=0, max_value=99, significant=False
+    )
+    wait_upper = luigi.NumericalParameter(
+        var_type=int, min_value=5, max_value=99, significant=False
+    )
+    timeout = luigi.NumericalParameter(
+        var_type=int, min_value=0, max_value=99, significant=False
     )
 
     def read_page_urls(self) -> Set[str]:
@@ -245,6 +280,9 @@ class DownloadFeedPages(luigi.WrapperTask):
                 data_path=self.data_path,
                 feed_name=self.feed_name,
                 page_url=page_url,
+                wait_lower=self.wait_lower,
+                wait_upper=self.wait_upper,
+                timeout=self.timeout,
             )
 
 
@@ -253,6 +291,17 @@ class DownloadPages(luigi.WrapperTask):
     feeds = luigi.ListParameter()
     date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
 
+    limit = luigi.NumericalParameter(var_type=int, min_value=0, max_value=999)
+    wait_lower = luigi.NumericalParameter(
+        var_type=int, min_value=0, max_value=99, significant=False
+    )
+    wait_upper = luigi.NumericalParameter(
+        var_type=int, min_value=5, max_value=99, significant=False
+    )
+    timeout = luigi.NumericalParameter(
+        var_type=int, min_value=0, max_value=99, significant=False
+    )
+
     def requires(self):
         return (
             DownloadFeedPages(
@@ -260,6 +309,10 @@ class DownloadPages(luigi.WrapperTask):
                 feed_name=feed['name'],
                 feed_url=feed['url'],
                 date_second=self.date_second,
+                limit=self.limit,
+                wait_lower=self.wait_lower,
+                wait_upper=self.wait_upper,
+                timeout=self.timeout,
             )
             for feed in self.feeds
             if feed.get('name')
@@ -283,7 +336,16 @@ def main():
     with open(args.config, 'r') as f:
         config = json.load(f)
     luigi.build(
-        [DownloadPages(data_path=args.data, feeds=config['feeds'])],
+        [
+            DownloadPages(
+                data_path=args.data,
+                feeds=config['feeds'],
+                limit=config['download_num_latest_feed_pages_csvs'],
+                wait_lower=config['download_wait_lower'],
+                wait_upper=config['download_wait_upper'],
+                timeout=config['download_page_timeout'],
+            )
+        ],
         workers=1,
         local_scheduler=True,
         parallel_scheduling=True,

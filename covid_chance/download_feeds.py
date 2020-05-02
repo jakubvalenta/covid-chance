@@ -42,6 +42,10 @@ class DownloadFeed(luigi.Task):
     feed_url = luigi.Parameter()
     date_second = luigi.DateSecondParameter()
 
+    timeout = luigi.NumericalParameter(
+        var_type=int, min_value=0, max_value=99, significant=False
+    )
+
     def output(self):
         return luigi.LocalTarget(
             Path(self.data_path)
@@ -50,7 +54,7 @@ class DownloadFeed(luigi.Task):
         )
 
     def run(self):
-        page_urls = download_feed(self.feed_url)
+        page_urls = download_feed(self.feed_url, timeout=self.timeout)
         with self.output().open('w') as f:
             writer = csv.writer(f, lineterminator='\n')
             writer.writerows((page_url,) for page_url in page_urls)
@@ -61,6 +65,10 @@ class DownloadFeeds(luigi.WrapperTask):
     feeds = luigi.ListParameter()
     date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
 
+    timeout = luigi.NumericalParameter(
+        var_type=int, min_value=0, max_value=99, significant=False
+    )
+
     def requires(self):
         return (
             DownloadFeed(
@@ -68,6 +76,7 @@ class DownloadFeeds(luigi.WrapperTask):
                 feed_name=feed['name'],
                 feed_url=feed['url'],
                 date_second=self.date_second,
+                timeout=self.timeout,
             )
             for feed in self.feeds
             if feed.get('name') and feed.get('url')
@@ -91,7 +100,13 @@ def main():
     with open(args.config, 'r') as f:
         config = json.load(f)
     luigi.build(
-        [DownloadFeeds(data_path=args.data, feeds=config['feeds'])],
+        [
+            DownloadFeeds(
+                data_path=args.data,
+                feeds=config['feeds'],
+                timeout=config['download_feed_timeout'],
+            )
+        ],
         workers=6,
         local_scheduler=True,
         parallel_scheduling=True,
