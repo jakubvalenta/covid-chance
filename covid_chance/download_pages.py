@@ -8,7 +8,7 @@ import re
 import sys
 import time
 from pathlib import Path
-from typing import Iterator, Sequence, Set, Tuple, Type
+from typing import Dict, Iterator, Sequence, Set, Tuple, Type
 
 import luigi
 import requests
@@ -127,6 +127,17 @@ def get_page_text(html: str,) -> str:
     return clean_whitespace(text)
 
 
+def get_page_content_path(
+    data_path: str, feed_name: str, page_url: str
+) -> Path:
+    return (
+        Path(data_path)
+        / safe_filename(feed_name)
+        / safe_filename(simplify_url(page_url))
+        / 'page_content.txt'
+    )
+
+
 class SavePageURL(luigi.Task):
     data_path = luigi.Parameter()
     feed_name = luigi.Parameter()
@@ -162,10 +173,9 @@ class DownloadPageHTML(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.data_path)
-            / safe_filename(self.feed_name)
-            / safe_filename(simplify_url(self.page_url))
-            / 'page_content.html'
+            get_page_content_path(
+                self.data_path, self.feed_name, self.page_url
+            )
         )
 
     def requires(self):
@@ -226,97 +236,47 @@ class DownloadPageText(luigi.Task):
             f.write(text)
 
 
-class DownloadFeedPages(luigi.WrapperTask):
-    data_path = luigi.Parameter()
-    feed_name = luigi.Parameter()
-    feed_url = luigi.Parameter()
-    date_second = luigi.DateSecondParameter()
-
-    limit = luigi.NumericalParameter(var_type=int, min_value=0, max_value=999)
-    wait_lower = luigi.NumericalParameter(
-        var_type=int, min_value=0, max_value=99, significant=False
-    )
-    wait_upper = luigi.NumericalParameter(
-        var_type=int, min_value=5, max_value=99, significant=False
-    )
-    timeout = luigi.NumericalParameter(
-        var_type=int, min_value=0, max_value=99, significant=False
-    )
-
-    def read_page_urls(self) -> Set[str]:
-        feed_dir = Path(self.data_path) / safe_filename(self.feed_name)
-        page_urls = set()
-        paths = sorted(feed_dir.glob('feed_pages*.csv'))
-        if self.limit:
-            paths = paths[-self.limit :]
-        for p in paths:
-            with p.open('r') as f:
-                for (page_url,) in csv.reader(f):
-                    page_urls.add(clean_url(page_url))
-        return page_urls
-
-    def print_stats(self, page_urls: Set[str]):
-        missing = 0
-        for page_url in page_urls:
-            page_content_path = (
-                Path(self.data_path)
-                / safe_filename(self.feed_name)
-                / safe_filename(simplify_url(page_url))
-                / 'page_content.html'
-            )
-            if not page_content_path.exists():
-                missing += 1
-        if missing:
-            logger.info(
-                '"%s",%d / %d', self.feed_name, missing, len(page_urls)
-            )
-        return page_urls
-
-    def requires(self):
-        page_urls = self.read_page_urls()
-        self.print_stats(page_urls)
-        for page_url in page_urls:
-            yield DownloadPageText(
-                data_path=self.data_path,
-                feed_name=self.feed_name,
-                page_url=page_url,
-                wait_lower=self.wait_lower,
-                wait_upper=self.wait_upper,
-                timeout=self.timeout,
-            )
+def read_page_urls(data_path: str, feed_name: str, limit: int = 0) -> Set[str]:
+    feed_dir = Path(data_path) / safe_filename(feed_name)
+    page_urls = set()
+    paths = sorted(feed_dir.glob('feed_pages*.csv'))
+    if limit:
+        paths = paths[-limit:]
+    for p in paths:
+        with p.open('r') as f:
+            for (page_url,) in csv.reader(f):
+                page_urls.add(clean_url(page_url))
+    return page_urls
 
 
-class DownloadPages(luigi.WrapperTask):
-    data_path = luigi.Parameter()
-    feeds = luigi.ListParameter()
-    date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
-
-    limit = luigi.NumericalParameter(var_type=int, min_value=0, max_value=999)
-    wait_lower = luigi.NumericalParameter(
-        var_type=int, min_value=0, max_value=99, significant=False
-    )
-    wait_upper = luigi.NumericalParameter(
-        var_type=int, min_value=5, max_value=99, significant=False
-    )
-    timeout = luigi.NumericalParameter(
-        var_type=int, min_value=0, max_value=99, significant=False
-    )
-
-    def requires(self):
-        return (
-            DownloadFeedPages(
-                data_path=self.data_path,
-                feed_name=feed['name'],
-                feed_url=feed['url'],
-                date_second=self.date_second,
-                limit=self.limit,
-                wait_lower=self.wait_lower,
-                wait_upper=self.wait_upper,
-                timeout=self.timeout,
-            )
-            for feed in self.feeds
-            if feed.get('name')
+def filter_missing_page_urls(
+    data_path: str, page_urls_by_feed: Dict[str, Set[str]]
+) -> Dict[str, Set[str]]:
+    return {
+        feed_name: set(
+            page_url
+            for page_url in page_urls
+            if not get_page_content_path(
+                data_path, feed_name, page_url
+            ).exists()
         )
+        for feed_name, page_urls in page_urls_by_feed.items()
+    }
+
+
+def print_stats(page_urls_by_feed: Dict[str, Set[str]]):
+    writer = csv.DictWriter(
+        sys.stdout,
+        fieldnames=('feed_name', 'n_pages'),
+        quoting=csv.QUOTE_NONNUMERIC,
+        lineterminator='\n',
+    )
+    writer.writeheader()
+    for feed_name, page_urls in page_urls_by_feed.items():
+        if page_urls:
+            writer.writerow(
+                {'feed_name': feed_name, 'n_pages': len(page_urls)}
+            )
 
 
 def main():
@@ -335,18 +295,40 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-    luigi.build(
-        [
-            DownloadPages(
-                data_path=args.data,
-                feeds=config['feeds'],
-                limit=config['download_num_latest_feed_pages_csvs'],
-                wait_lower=config['download_wait_lower'],
-                wait_upper=config['download_wait_upper'],
-                timeout=config['download_page_timeout'],
+
+    page_urls_by_feed = {
+        feed['name']: read_page_urls(
+            args.data,
+            feed['name'],
+            limit=config['download_num_latest_feed_pages_csvs'],
+        )
+        for feed in config['feeds']
+        if feed.get('name')
+    }
+    missing_page_urls_by_feed = filter_missing_page_urls(
+        args.data, page_urls_by_feed
+    )
+    print_stats(missing_page_urls_by_feed)
+
+    tasks = []
+    for feed_name, page_urls in missing_page_urls_by_feed.items():
+        for page_url in page_urls:
+            tasks.append(
+                DownloadPageText(
+                    data_path=args.data,
+                    feed_name=feed_name,
+                    page_url=page_url,
+                    wait_lower=config['download_wait_lower'],
+                    wait_upper=config['download_wait_upper'],
+                    timeout=config['download_page_timeout'],
+                )
             )
-        ],
-        workers=1,
+    logger.info('Tasks to run: %d', len(tasks))
+
+    random.shuffle(tasks)
+    luigi.build(
+        tasks,
+        workers=2,
         local_scheduler=True,
         parallel_scheduling=True,
         log_level='WARNING',

@@ -60,29 +60,6 @@ class DownloadFeed(luigi.Task):
             writer.writerows((page_url,) for page_url in page_urls)
 
 
-class DownloadFeeds(luigi.WrapperTask):
-    data_path = luigi.Parameter()
-    feeds = luigi.ListParameter()
-    date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
-
-    timeout = luigi.NumericalParameter(
-        var_type=int, min_value=0, max_value=99, significant=False
-    )
-
-    def requires(self):
-        return (
-            DownloadFeed(
-                data_path=self.data_path,
-                feed_name=feed['name'],
-                feed_url=feed['url'],
-                date_second=self.date_second,
-                timeout=self.timeout,
-            )
-            for feed in self.feeds
-            if feed.get('name') and feed.get('url')
-        )
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--data', help='Data path', default='./data')
@@ -99,14 +76,23 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
+
+    current_datetime = luigi.DateSecondParameter(
+        default=datetime.datetime.now()
+    )
+    tasks = [
+        DownloadFeed(
+            data_path=args.data,
+            feed_name=feed['name'],
+            feed_url=feed['url'],
+            date_second=current_datetime,
+            timeout=config['download_feed_timeout'],
+        )
+        for feed in config['feeds']
+        if feed.get('name') and feed.get('url')
+    ]
     luigi.build(
-        [
-            DownloadFeeds(
-                data_path=args.data,
-                feeds=config['feeds'],
-                timeout=config['download_feed_timeout'],
-            )
-        ],
+        tasks,
         workers=6,
         local_scheduler=True,
         parallel_scheduling=True,
