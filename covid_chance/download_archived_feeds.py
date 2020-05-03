@@ -79,14 +79,17 @@ def download_archived_feeds(
             data_path, feed['name']
         ).items():
             logger.info('Found archive feed URL %s %s', date, feed_url)
-            page_urls = download_feed_with_cache(
-                data_path,
-                feed_name=feed['name'],
-                feed_url=feed_url,
-                date=date,
-                timeout=timeout,
-            )
-            save_page_urls(conn, table, feed['name'], page_urls, date)
+            try:
+                page_urls = download_feed_with_cache(
+                    data_path,
+                    feed_name=feed['name'],
+                    feed_url=feed_url,
+                    date=date,
+                    timeout=timeout,
+                )
+                save_page_urls(conn, table, feed['name'], page_urls, date)
+            except Exception:
+                logger.error('Failed to download %s', feed_url)
     conn.commit()
     conn.close()
 
