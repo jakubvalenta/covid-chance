@@ -2,7 +2,6 @@ import argparse
 import json
 import logging
 import sys
-from concurrent.futures import ThreadPoolExecutor, wait
 from pathlib import Path
 from typing import Dict, Iterable, Optional, cast
 
@@ -38,8 +37,7 @@ CREATE INDEX index_{table}_url ON {table} (url);
     cur.close()
 
 
-def read_page_url(page_dir: Path) -> Optional[str]:
-    path = page_dir / 'page_url.txt'
+def read_page_url(path: Path) -> Optional[str]:
     if path.is_file():
         with path.open('r') as f:
             page_url = clean_url(f.readline().strip())
@@ -61,7 +59,7 @@ def copy_feed_pages_to_db(conn, table: str, data_path: str, feed_name: str):
     for page_dir in sorted(feed_dir.iterdir()):
         if not page_dir.is_dir():
             continue
-        page_url = read_page_url(page_dir)
+        page_url = read_page_url(page_dir / 'page_url.txt')
         if not page_url:
             continue
         if db_select(conn, table, url=page_url):
@@ -73,26 +71,28 @@ def copy_feed_pages_to_db(conn, table: str, data_path: str, feed_name: str):
         count += 1
     conn.commit()
     cur.close()
-    logger.info('done %s %d pages', feed_name.ljust(40), count)
+    logger.info('done %s %d pages copied', feed_name.ljust(40), count)
 
 
 def copy_pages_to_db(
-    conn, table: str, data_path: str, feeds: Iterable[Dict[str, Optional[str]]]
+    db: dict,
+    table: str,
+    data_path: str,
+    feeds: Iterable[Dict[str, Optional[str]]],
 ):
+    conn = db_connect(
+        host=db['host'],
+        database=db['database'],
+        user=db['user'],
+        password=db['password'],
+    )
     create_table(conn, table)
-    with ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(
-                copy_feed_pages_to_db,
-                conn,
-                table,
-                data_path,
-                cast(str, feed['name']),
+    for feed in feeds:
+        if feed.get('name'):
+            copy_feed_pages_to_db(
+                conn, table, data_path, cast(str, feed['name']),
             )
-            for feed in feeds
-            if feed.get('name')
-        ]
-        wait(futures)
+    conn.close()
 
 
 def main():
@@ -111,19 +111,12 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-    conn = db_connect(
-        host=config['db']['host'],
-        database=config['db']['database'],
-        user=config['db']['user'],
-        password=config['db']['password'],
-    )
     copy_pages_to_db(
-        conn,
+        db=config['db'],
         table=config['db']['table_pages'],
         data_path=args.data,
         feeds=config['feeds'],
     )
-    conn.close()
 
 
 if __name__ == '__main__':

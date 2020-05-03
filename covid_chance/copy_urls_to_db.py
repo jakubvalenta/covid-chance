@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Iterable, Optional, cast
 
+from covid_chance.copy_pages_to_db import read_page_url
 from covid_chance.download_feeds import create_table, save_page_urls
 from covid_chance.utils.db_utils import db_connect
 from covid_chance.utils.download_utils import clean_url
@@ -29,11 +30,10 @@ def read_page_urls(
                     page_urls[page_url] = mtime
     for p in sorted(feed_dir.glob('**/page_url.txt')):
         mtime = datetime.datetime.fromtimestamp(p.stat().st_mtime)
-        raw_page_url = p.read_text().strip()
+        page_url = read_page_url(p)
         if not raw_page_url:
             logger.error('%s contains invalid URL', str(p))
             continue
-        page_url = clean_url(raw_page_url)
         if page_url not in page_urls:
             page_urls[page_url] = mtime
     return page_urls

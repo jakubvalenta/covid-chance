@@ -7,15 +7,19 @@ def db_connect(**kwargs):
     return psycopg2.connect(**kwargs)
 
 
-def db_select(conn, table: str, **where) -> tuple:
-    cur = conn.cursor()
+def db_select(conn, table: str, cur=None, **where) -> tuple:
+    if cur is None:
+        cur_ = conn.cursor()
+    else:
+        cur_ = cur
     where_str = ' AND '.join(f'{k} = %s' for k in where.keys())
     where_values = tuple(where.values())
-    cur.execute(
+    cur_.execute(
         f'SELECT * FROM {table} WHERE {where_str} LIMIT 1;', where_values
     )
-    row = cur.fetchone()
-    cur.close()
+    row = cur_.fetchone()
+    if cur is None:
+        cur_.close()
     return row
 
 
