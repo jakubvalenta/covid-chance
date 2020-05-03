@@ -77,9 +77,7 @@ def main():
     with open(args.config, 'r') as f:
         config = json.load(f)
 
-    current_datetime = luigi.DateSecondParameter(
-        default=datetime.datetime.now()
-    )
+    current_datetime = datetime.datetime.now()
     tasks = [
         DownloadFeed(
             data_path=args.data,

@@ -286,6 +286,7 @@ def main():
     parser.add_argument(
         '-c', '--config', help='Configuration file path', required=True
     )
+    parser.add_argument('--dry-run', action='store_true', help='Dry run')
     parser.add_argument(
         '-v', '--verbose', action='store_true', help='Enable debugging output'
     )
@@ -325,7 +326,9 @@ def main():
                 )
             )
     logger.info('Tasks to run: %d', len(tasks))
-
+    if args.dry_run:
+        logger.warning('This is just a dry run, not downloading any pages')
+        return
     random.shuffle(tasks)
     luigi.build(
         tasks,
