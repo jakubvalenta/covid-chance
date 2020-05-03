@@ -67,7 +67,10 @@ def copy_feed_pages_to_db(conn, table: str, data_path: str, feed_name: str):
         page_content = read_page_content(page_dir)
         if not page_content:
             continue
-        db_insert(conn, table, cur=cur, url=page_url, text=page_content)
+        try:
+            db_insert(conn, table, cur=cur, url=page_url, text=page_content)
+        except ValueError:
+            logger.error('Insert failed for %s', page_url)
         count += 1
     conn.commit()
     cur.close()

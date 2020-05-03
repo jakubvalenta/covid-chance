@@ -112,6 +112,7 @@ def download_feeds(
                 feed_url=feed['url'],
                 timeout=timeout,
             )
+    conn.commit()
     conn.close()
 
 
