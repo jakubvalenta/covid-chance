@@ -38,11 +38,10 @@ CREATE INDEX index_{table}_url ON {table} (url);
     cur.close()
 
 
-def download_feed(url: str, timeout: int = 10) -> Dict[str, datetime.datetime]:
+def download_feed(url: str, timeout: int = 10) -> List[str]:
     logger.info('Downloading feed %s', url)
     # Fetch the feed content using requests, because feedparser seems to have
     # some trouble with the Basic Auth -- the feed object contains an error.
-    mtime = datetime.datetime.now()
     r = requests.get(
         url,
         headers={
@@ -55,20 +54,23 @@ def download_feed(url: str, timeout: int = 10) -> Dict[str, datetime.datetime]:
     )
     r.raise_for_status()
     feed = feedparser.parse(r.text)
-    page_urls = [clean_url(entry.link) for entry in feed.entries]
-    return {page_url: mtime for page_url in page_urls}
+    return [clean_url(entry.link) for entry in feed.entries]
 
 
 def save_page_urls(
-    conn, table: str, feed_name: str, page_urls: Dict[str, datetime.datetime]
+    conn,
+    table: str,
+    feed_name: str,
+    page_urls: List[str],
+    mtime: datetime.datetime,
 ):
     cur = conn.cursor()
-    missing_page_urls = {
-        page_url: mtime
-        for page_url, mtime in page_urls.items()
+    missing_page_urls = [
+        page_url
+        for page_url in set(page_urls)
         if not db_select(conn, table, cur=cur, url=page_url)
-    }
-    for page_url, mtime in missing_page_urls.items():
+    ]
+    for page_url in missing_page_urls:
         db_insert(
             conn,
             table,
@@ -89,8 +91,9 @@ def save_page_urls(
 def download_and_save_feed(
     conn, table: str, feed_name: str, feed_url: str, timeout: int
 ):
+    mtime = datetime.datetime.now()
     page_urls = download_feed(feed_url, timeout)
-    save_page_urls(conn, table, feed_name, page_urls)
+    save_page_urls(conn, table, feed_name, page_urls, mtime)
 
 
 def download_feeds(
