@@ -1,8 +1,8 @@
 import argparse
+import concurrent.futures
 import json
 import logging
 import sys
-from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Iterator, Tuple
 
 import psycopg2
@@ -27,7 +27,6 @@ CREATE TABLE {table} (
   param_hash text,
   inserted timestamp DEFAULT NOW()
 );
-CREATE INDEX index_{table}_line ON {table} (line);
 CREATE INDEX index_{table}_parsed ON {table} (parsed);
 CREATE INDEX index_{table}_param_hash ON {table} (param_hash);
 '''
@@ -83,10 +82,18 @@ def parse_lines_one(
         )
 
 
-def parse_lines(conn, parse_pattern: str, table_lines: str, table_parsed: str):
+def parse_lines(
+    db: dict, parse_pattern: str, table_lines: str, table_parsed: str
+):
+    conn = db_connect(
+        host=db['host'],
+        database=db['database'],
+        user=db['user'],
+        password=db['password'],
+    )
     rx = regex.compile(parse_pattern)
     create_table(conn, table_parsed)
-    with ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
             executor.submit(
                 parse_lines_one,
@@ -100,7 +107,12 @@ def parse_lines(conn, parse_pattern: str, table_lines: str, table_parsed: str):
             )
             for i, (page_url, line) in enumerate(get_lines(conn, table_lines))
         ]
-        wait(futures)
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                future.result()
+            except Exception as e:
+                logger.error('Exception: %s', e)
+    conn.close()
 
 
 def main():
@@ -119,19 +131,12 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-    conn = db_connect(
-        host=config['db']['host'],
-        database=config['db']['database'],
-        user=config['db']['user'],
-        password=config['db']['password'],
-    )
     parse_lines(
-        conn,
+        db=config['db'],
         parse_pattern=config['parse_pattern'],
         table_lines=config['db']['table_lines'],
         table_parsed=config['db']['table_parsed'],
     )
-    conn.close()
 
 
 if __name__ == '__main__':

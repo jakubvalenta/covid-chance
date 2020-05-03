@@ -49,7 +49,6 @@ CREATE TABLE {table} (
   inserted timestamp DEFAULT NOW()
 );
 CREATE INDEX index_{table}_url ON {table} (url);
-CREATE INDEX index_{table}_line ON {table} (line);
 CREATE INDEX index_{table}_parsed ON {table} (parsed);
 '''
         )

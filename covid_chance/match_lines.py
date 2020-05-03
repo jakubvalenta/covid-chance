@@ -1,8 +1,8 @@
 import argparse
+import concurrent.futures
 import json
 import logging
 import sys
-from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Iterator, Sequence
 
 import psycopg2
@@ -25,7 +25,6 @@ CREATE TABLE {table} (
   param_hash text,
   inserted timestamp DEFAULT NOW()
 );
-CREATE INDEX index_{table}_line ON {table} (line);
 CREATE INDEX index_{table}_url ON {table} (url);
 CREATE INDEX index_{table}_param_hash ON {table} (param_hash);
 '''
@@ -98,14 +97,20 @@ def match_page_lines(
 
 
 def match_lines(
-    conn,
+    db: dict,
     keyword_lists: Sequence[Sequence[str]],
     table_lines: str,
     table_pages: str,
 ):
+    conn = db_connect(
+        host=db['host'],
+        database=db['database'],
+        user=db['user'],
+        password=db['password'],
+    )
     param_hash = hashobj(keyword_lists)
     create_table(conn, table_lines)
-    with ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
             executor.submit(
                 match_page_lines,
@@ -121,7 +126,12 @@ def match_lines(
                 get_pages(conn, table_pages)
             )
         ]
-        wait(futures)
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                future.result()
+            except Exception as e:
+                logger.error('Exception: %s', e)
+    conn.close()
 
 
 def main():
@@ -140,19 +150,12 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-    conn = db_connect(
-        host=config['db']['host'],
-        database=config['db']['database'],
-        user=config['db']['user'],
-        password=config['db']['password'],
-    )
     match_lines(
-        conn,
+        db=config['db'],
         keyword_lists=config['keyword_lists'],
         table_lines=config['db']['table_lines'],
         table_pages=config['db']['table_pages'],
     )
-    conn.close()
 
 
 if __name__ == '__main__':
