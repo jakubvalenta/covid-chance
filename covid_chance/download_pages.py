@@ -9,7 +9,7 @@ import sys
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Iterator, Sequence, Set, Tuple, Type
+from typing import Dict, Iterator, Optional, Sequence, Set, Tuple, Type
 
 import requests
 from bs4 import (
@@ -18,7 +18,7 @@ from bs4 import (
 )
 from bs4.element import Script, Stylesheet, TemplateString
 
-from covid_chance.utils.db_utils import db_connect
+from covid_chance.utils.db_utils import db_connect, db_insert
 from covid_chance.utils.download_utils import simplify_url
 from covid_chance.utils.file_utils import safe_filename
 
@@ -31,6 +31,7 @@ def download_page(
     timeout: int = 10,
     non_recoverable_error_codes: Sequence[int] = (
         requests.codes.not_found,
+        requests.codes.gone,
         requests.codes.legal_reasons,
     ),
 ) -> str:
@@ -134,7 +135,7 @@ def download_page_text(
     page_url: str,
     wait_interval: Tuple[int, int],
     timeout: int,
-):
+) -> Optional[str]:
     path = (
         Path(data_path)
         / safe_filename(feed_name)
@@ -142,14 +143,14 @@ def download_page_text(
         / 'page_content.txt'
     )
     if path.exists():
-        return False
+        return None
     html = download_page(
         page_url, wait_interval=wait_interval, timeout=timeout,
     )
     text = get_page_text(html)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text)
-    return True
+    return text
 
 
 def select_page_urls_to_download(
@@ -216,13 +217,17 @@ def download_pages(
 
     random.shuffle(page_urls_with_feed_names)
     for page_url, feed_name in page_urls_with_feed_names:
-        download_page_text(
+        text = download_page_text(
             data_path=data_path,
             feed_name=feed_name,
             page_url=page_url,
             wait_interval=wait_interval,
             timeout=timeout,
         )
+        if text:
+            db_insert(conn, table_pages, url=page_url, text=text)
+    conn.commit()
+    conn.close()
 
 
 def main():
