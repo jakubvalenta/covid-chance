@@ -27,6 +27,15 @@ def read_page_urls(
                 page_url = clean_url(raw_page_url)
                 if page_url not in page_urls:
                     page_urls[page_url] = mtime
+    for p in sorted(feed_dir.glob('**/page_url.txt')):
+        mtime = datetime.datetime.fromtimestamp(p.stat().st_mtime)
+        raw_page_url = p.read_text().strip()
+        if not raw_page_url:
+            logger.error('%s contains invalid URL', str(p))
+            continue
+        page_url = clean_url(raw_page_url)
+        if page_url not in page_urls:
+            page_urls[page_url] = mtime
     return page_urls
 
 
