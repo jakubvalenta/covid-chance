@@ -4,10 +4,9 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional
 from urllib.parse import urlsplit
 
-import luigi
 import requests
 
 from covid_chance.utils.file_utils import safe_filename
@@ -48,62 +47,37 @@ def find_closest_snapshot_url(url: str, date: datetime.date) -> Optional[str]:
     return snapshot_url
 
 
-class DownloadFeedArchive(luigi.Task):
-    data_path = luigi.Parameter()
-    feed_name = luigi.ListParameter()
-    feed_url = luigi.ListParameter()
-    date = luigi.DateParameter()
-
-    def output(self):
-        return luigi.LocalTarget(
-            Path(self.data_path)
-            / safe_filename(self.feed_name)
-            / f'feed_archived-{self.date.isoformat()}.json'
-        )
-
-    def run(self):
-        archived_feed_url = find_closest_snapshot_url(self.feed_url, self.date)
-        with self.output().open('w') as f:
-            data = {
-                'timestamp': self.date.isoformat(),
-                'url': archived_feed_url,
-            }
-            json.dump(data, f)
+def download_feed_archive(
+    data_path: str, feed_name: str, feed_url: str, date: datetime.date
+):
+    output_path = (
+        Path(data_path)
+        / safe_filename(feed_name)
+        / f'feed_archived-{date.isoformat()}.json'
+    )
+    if output_path.exists():
+        return
+    archived_feed_url = find_closest_snapshot_url(feed_url, date)
+    data = {
+        'timestamp': date.isoformat(),
+        'url': archived_feed_url,
+    }
+    with output_path.open('w') as f:
+        json.dump(data, f)
 
 
-class DownloadFeedArchives(luigi.WrapperTask):
-    data_path = luigi.Parameter()
-    feeds = luigi.ListParameter()
-    date = luigi.DateParameter()
-
-    def requires(self):
-        return (
-            DownloadFeedArchive(
-                data_path=self.data_path,
-                feed_name=feed['name'],
-                feed_url=feed['url'],
-                date=self.date,
-            )
-            for feed in self.feeds
-            if feed.get('name') and feed.get('url')
-        )
-
-
-class DownloadFeedsArchives(luigi.WrapperTask):
-    data_path = luigi.Parameter()
-    feeds = luigi.ListParameter()
-    dates = luigi.ListParameter()
-    date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
-
-    def requires(self):
-        return (
-            DownloadFeedArchives(
-                data_path=self.data_path,
-                feeds=self.feeds,
-                date=datetime.date.fromisoformat(date_str),
-            )
-            for date_str in self.dates
-        )
+def download_feed_archives(
+    data_path: str, feeds: List[Dict[str, str]], dates: List[datetime.date]
+):
+    for feed in feeds:
+        if feed.get('name') and feed.get('url'):
+            for date in dates:
+                download_feed_archive(
+                    data_path=data_path,
+                    feed_name=feed['name'],
+                    feed_url=feed['url'],
+                    date=date,
+                )
 
 
 def main():
@@ -122,18 +96,12 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-    luigi.build(
-        [
-            DownloadFeedsArchives(
-                data_path=args.data,
-                feeds=config['feeds'],
-                dates=config['archive_dates'],
-            )
+    download_feed_archives(
+        data_path=args.data,
+        feeds=config['feeds'],
+        dates=[
+            datetime.date.fromisoformat(d) for d in config['archive_dates']
         ],
-        workers=1,
-        local_scheduler=True,
-        parallel_scheduling=True,
-        log_level='WARNING',
     )
 
 

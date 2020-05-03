@@ -27,7 +27,6 @@ setup(
         'beautifulsoup4',
         'colored',
         'feedparser',
-        'luigi',
         'lxml',
         'psycopg2',
         'python-twitter',

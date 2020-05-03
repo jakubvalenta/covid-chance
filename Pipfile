@@ -12,7 +12,6 @@ mypy = "*"
 [packages]
 beautifulsoup4 = "*"
 feedparser = "*"
-luigi = "*"
 lxml = "*"
 python-twitter = "*"
 regex = "*"
