@@ -4,56 +4,63 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 
-import luigi
-
-from covid_chance.download_feeds import DownloadFeed
+from covid_chance.download_feeds import create_table, download_and_save_feed
+from covid_chance.utils.db_utils import db_connect
 from covid_chance.utils.file_utils import safe_filename
 
 logger = logging.getLogger(__name__)
 
 
-class DownloadArchivedFeeds(luigi.WrapperTask):
-    data_path = luigi.Parameter()
-    feeds = luigi.ListParameter()
-    date_second = luigi.DateSecondParameter(default=datetime.datetime.now())
-
-    def get_archived_feeds(
-        self, feed_name: str
-    ) -> Dict[str, datetime.datetime]:
-        archived_feeds = {}
-        for p in (Path(self.data_path) / safe_filename(feed_name)).glob(
-            'feed_archived*.json'
-        ):
-            with p.open('r') as f:
-                data = json.load(f)
-                url = data['url']
-                timestamp = data['timestamp']
-                if (
-                    url
-                    and 'http://none' not in url
-                    and url not in archived_feeds
-                ):
-                    logger.info('Found archive feed URL %s %s', timestamp, url)
-                    archived_feeds[url] = datetime.datetime.fromisoformat(
-                        timestamp
-                    )
-        return archived_feeds
-
-    def requires(self):
-        for feed in self.feeds:
-            if not feed.get('name'):
-                continue
-            for feed_url, feed_timestamp in self.get_archived_feeds(
-                feed['name']
-            ).items():
-                yield DownloadFeed(
-                    data_path=self.data_path,
-                    feed_name=feed['name'],
-                    feed_url=feed_url,
-                    date_second=feed_timestamp,
+def read_archived_feeds(
+    data_path: str, feed_name: str
+) -> Dict[str, datetime.datetime]:
+    archived_feeds = {}
+    for p in (Path(data_path) / safe_filename(feed_name)).glob(
+        'feed_archived*.json'
+    ):
+        with p.open('r') as f:
+            data = json.load(f)
+            url = data['url']
+            timestamp = data['timestamp']
+            if url and 'http://none' not in url and url not in archived_feeds:
+                logger.info('Found archive feed URL %s %s', timestamp, url)
+                archived_feeds[url] = datetime.datetime.fromisoformat(
+                    timestamp
                 )
+    return archived_feeds
+
+
+def download_archived_feeds(
+    db: dict,
+    table: str,
+    data_path: str,
+    feeds: List[Dict[str, str]],
+    timeout: int,
+):
+    conn = db_connect(
+        host=db['host'],
+        database=db['database'],
+        user=db['user'],
+        password=db['password'],
+    )
+    create_table(conn, table)
+    for feed in feeds:
+        if not feed.get('name'):
+            continue
+        for feed_url, feed_timestamp in read_archived_feeds(
+            data_path, feed['name']
+        ).items():
+            download_and_save_feed(
+                conn,
+                table,
+                feed_name=feed['name'],
+                feed_url=feed_url,
+                timeout=timeout,
+            )
+    conn.commit()
+    conn.close()
 
 
 def main():
@@ -72,12 +79,12 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-    luigi.build(
-        [DownloadArchivedFeeds(data_path=args.data, feeds=config['feeds'])],
-        workers=1,
-        local_scheduler=True,
-        parallel_scheduling=True,
-        log_level='WARNING',
+    download_archived_feeds(
+        db=config['db'],
+        table=config['db']['table_urls'],
+        data_path=args.data,
+        feeds=config['feeds'],
+        timeout=config['download_feed_timeout'],
     )
 
 
