@@ -1,20 +1,41 @@
 import argparse
-import csv
-import datetime
 import json
 import logging
 import sys
-from pathlib import Path
-from typing import List
+from concurrent.futures import ThreadPoolExecutor, wait
+from typing import Dict, List
 
 import feedparser
-import luigi
+import psycopg2
+import psycopg2.errorcodes
 import requests
 
+from covid_chance.utils.db_utils import db_connect, db_insert, db_select
 from covid_chance.utils.download_utils import clean_url
-from covid_chance.utils.file_utils import safe_filename
 
 logger = logging.getLogger(__name__)
+
+
+def create_table(conn, table: str):
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            f'''
+CREATE TABLE {table} (
+  feed_name text
+  url text UNIQUE,
+  inserted timestamp DEFAULT NOW()
+);
+CREATE INDEX index_{table}_url ON {table} (url);
+'''
+        )
+    except psycopg2.ProgrammingError as e:
+        if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
+            pass
+        else:
+            raise
+    conn.commit()
+    cur.close()
 
 
 def download_feed(url: str, timeout: int = 10) -> List[str]:
@@ -36,28 +57,37 @@ def download_feed(url: str, timeout: int = 10) -> List[str]:
     return [clean_url(entry.link) for entry in feed.entries]
 
 
-class DownloadFeed(luigi.Task):
-    data_path = luigi.Parameter()
-    feed_name = luigi.Parameter()
-    feed_url = luigi.Parameter()
-    date_second = luigi.DateSecondParameter()
+def save_page_urls(conn, table: str, feed_name: str, page_urls: List[str]):
+    for page_url in page_urls:
+        if not db_select(conn, table, url=page_url):
+            db_insert(conn, table, feed_name=feed_name, url=page_url)
 
-    timeout = luigi.NumericalParameter(
-        var_type=int, min_value=0, max_value=99, significant=False
-    )
 
-    def output(self):
-        return luigi.LocalTarget(
-            Path(self.data_path)
-            / safe_filename(self.feed_name)
-            / f'feed_pages-{self.date_second.isoformat()}.csv'
-        )
+def download_and_save_feed(
+    conn, table: str, feed_name: str, feed_url: str, timeout: int
+):
+    page_urls = download_feed(feed_url, timeout)
+    save_page_urls(conn, table, feed_name, page_urls)
 
-    def run(self):
-        page_urls = download_feed(self.feed_url, timeout=self.timeout)
-        with self.output().open('w') as f:
-            writer = csv.writer(f, lineterminator='\n')
-            writer.writerows((page_url,) for page_url in page_urls)
+
+def download_feeds(
+    conn, table: str, feeds: List[Dict[str, str]], timeout: int
+):
+    create_table(conn, table)
+    with ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(
+                download_and_save_feed,
+                conn,
+                table=table,
+                feed_name=feed['name'],
+                feed_url=feed['url'],
+                timeout=timeout,
+            )
+            for feed in feeds
+            if feed.get('name') and feed.get('url')
+        ]
+        wait(futures)
 
 
 def main():
@@ -76,25 +106,17 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-
-    current_datetime = datetime.datetime.now()
-    tasks = [
-        DownloadFeed(
-            data_path=args.data,
-            feed_name=feed['name'],
-            feed_url=feed['url'],
-            date_second=current_datetime,
-            timeout=config['download_feed_timeout'],
-        )
-        for feed in config['feeds']
-        if feed.get('name') and feed.get('url')
-    ]
-    luigi.build(
-        tasks,
-        workers=6,
-        local_scheduler=True,
-        parallel_scheduling=True,
-        log_level='WARNING',
+    conn = db_connect(
+        host=config['db']['host'],
+        database=config['db']['database'],
+        user=config['db']['user'],
+        password=config['db']['password'],
+    )
+    download_feeds(
+        conn,
+        table=config['table_urls'],
+        feeds=config['feeds'],
+        timeout=config['download_feed_timeout'],
     )
 
 
