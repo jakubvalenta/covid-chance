@@ -11,6 +11,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Iterator, Optional, Sequence, Set, Tuple, Type
 
+import psycopg2
+import psycopg2.errorcodes
 import requests
 from bs4 import (
     BeautifulSoup, CData, Comment, Declaration, Doctype, NavigableString,
@@ -23,6 +25,28 @@ from covid_chance.utils.download_utils import simplify_url
 from covid_chance.utils.file_utils import safe_filename
 
 logger = logging.getLogger(__name__)
+
+
+def create_table(conn, table: str):
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            f'''
+CREATE TABLE {table} (
+  url text,
+  text text,
+  inserted timestamp DEFAULT NOW()
+);
+CREATE INDEX index_{table}_url ON {table} (url);
+'''
+        )
+    except psycopg2.ProgrammingError as e:
+        if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
+            pass
+        else:
+            raise
+    conn.commit()
+    cur.close()
 
 
 def download_page(
@@ -212,6 +236,7 @@ def download_pages(
         user=db['user'],
         password=db['password'],
     )
+    create_table(conn, table_pages)
     logger.info('Selecting pages to download since %s', since)
     page_urls_by_feeds = select_page_urls_to_download(
         conn, table_urls, table_pages, since
@@ -230,7 +255,7 @@ def download_pages(
 
     random.shuffle(page_urls_with_feed_names)
     for i, (page_url, feed_name) in enumerate(page_urls_with_feed_names):
-        logger.info('%d/%d, Downloading %s', i, total, page_url)
+        logger.info('%d/%d Downloading %s', i + 1, total, page_url)
         text = download_page_text(
             data_path=data_path,
             feed_name=feed_name,
