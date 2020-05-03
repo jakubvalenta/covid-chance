@@ -74,7 +74,7 @@ def copy_feed_pages_to_db(conn, table: str, data_path: str, feed_name: str):
         count += 1
     conn.commit()
     cur.close()
-    logger.info('done %s %d pages copied', feed_name.ljust(40), count)
+    logger.info('done %s %d pages inserted', feed_name.ljust(40), count)
 
 
 def copy_pages_to_db(

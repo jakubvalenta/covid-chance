@@ -35,9 +35,12 @@ def download_page(
         requests.codes.legal_reasons,
     ),
 ) -> str:
+    if url.startswith('urn:'):
+        logger.error('Unsupported scheme')
+        return ''
     wait = random.randint(*wait_interval)
-    logger.info('Downloading page in %ss %s', wait, url)
     if wait:
+        logger.info('Waiting for %ds', wait)
         time.sleep(wait)
     try:
         res = requests.get(
@@ -51,8 +54,10 @@ def download_page(
             timeout=timeout,
         )
     except requests.TooManyRedirects:
+        logger.error('Too many redirects')
         return ''
     if res.status_code in non_recoverable_error_codes:
+        logger.error('Non-recoverable error encountered')
         return ''
     res.raise_for_status()
     return res.text
@@ -123,7 +128,9 @@ def clean_whitespace(s: str) -> str:
     return s.strip()
 
 
-def get_page_text(html: str,) -> str:
+def get_page_text(html: str) -> str:
+    if not html:
+        return ''
     soup = BeautifulSoup(html, 'lxml')
     text = ''.join(get_element_text(soup))
     return clean_whitespace(text)
@@ -142,11 +149,16 @@ def download_page_text(
         / safe_filename(simplify_url(page_url))
         / 'page_content.txt'
     )
-    if path.exists():
+    if path.is_file():
+        logger.info('Reading from cache %s', page_url)
+        return path.read_text()
+    try:
+        html = download_page(
+            page_url, wait_interval=wait_interval, timeout=timeout,
+        )
+    except Exception:
+        logger.error('Failed to download %s', page_url)
         return None
-    html = download_page(
-        page_url, wait_interval=wait_interval, timeout=timeout,
-    )
     text = get_page_text(html)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text)
@@ -210,13 +222,15 @@ def download_pages(
     for feed_name, page_urls in page_urls_by_feeds.items():
         for page_url in page_urls:
             page_urls_with_feed_names.append((page_url, feed_name))
-    logger.info('Pages to download: %d', len(page_urls_with_feed_names))
+    total = len(page_urls_with_feed_names)
+    logger.info('Pages to download: %d',)
     if dry_run:
         logger.warning('This is just a dry run, not downloading any pages')
         return
 
     random.shuffle(page_urls_with_feed_names)
-    for page_url, feed_name in page_urls_with_feed_names:
+    for i, (page_url, feed_name) in enumerate(page_urls_with_feed_names):
+        logger.info('%d/%d, Downloading %s', i, total, page_url)
         text = download_page_text(
             data_path=data_path,
             feed_name=feed_name,
@@ -224,7 +238,7 @@ def download_pages(
             wait_interval=wait_interval,
             timeout=timeout,
         )
-        if text:
+        if text is not None:
             db_insert(conn, table_pages, url=page_url, text=text)
     conn.commit()
     conn.close()
