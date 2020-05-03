@@ -72,9 +72,8 @@ def match_page_lines(
     param_hash: str,
 ):
     if db_select(conn, table, url=page_url, param_hash=param_hash):
-        logger.info('%d done %s', i, page_url)
         return
-    logger.warning('%d todo %s', i, page_url)
+    logger.info('%d Matched %s', i, page_url)
     cur = conn.cursor()
     inserted = False
     for line in page_text.splitlines():

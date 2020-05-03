@@ -68,9 +68,8 @@ def parse_lines_one(
 ):
     param_hash = hashobj(parse_pattern)
     if db_select(conn, table, line=line, param_hash=param_hash):
-        logger.info('%d done %s', i, page_url)
         return
-    logger.warning('%d todo %s', i, page_url)
+    logger.info('%d Parsed %s', i, page_url)
     for line, parsed in parse_line(rx, line):
         db_insert(
             conn,

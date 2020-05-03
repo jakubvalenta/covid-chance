@@ -30,9 +30,8 @@ def clean_urls(
     for i, page_url in enumerate(get_page_urls(conn, table_pages)):
         clean_page_url = clean_url(page_url)
         if page_url == clean_page_url:
-            logger.info('%d done %s', i, page_url)
             continue
-        logger.warning('%d todo %s > %s', i, page_url, clean_page_url)
+        logger.info('%d Cleaning %s > %s', i, page_url, clean_page_url)
         for table in (table_lines, table_pages, table_parsed, table_reviewed):
             cur.execute(
                 f'UPDATE {table} SET url = %s WHERE url = %s;',
