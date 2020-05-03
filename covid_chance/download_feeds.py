@@ -1,8 +1,8 @@
 import argparse
+import datetime
 import json
 import logging
 import sys
-from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Dict, List
 
 import feedparser
@@ -22,8 +22,8 @@ def create_table(conn, table: str):
         cur.execute(
             f'''
 CREATE TABLE {table} (
-  feed_name text
-  url text UNIQUE,
+  url text PRIMARY KEY,
+  feed_name text,
   inserted timestamp DEFAULT NOW()
 );
 CREATE INDEX index_{table}_url ON {table} (url);
@@ -38,10 +38,11 @@ CREATE INDEX index_{table}_url ON {table} (url);
     cur.close()
 
 
-def download_feed(url: str, timeout: int = 10) -> List[str]:
+def download_feed(url: str, timeout: int = 10) -> Dict[str, datetime.datetime]:
     logger.info('Downloading feed %s', url)
     # Fetch the feed content using requests, because feedparser seems to have
     # some trouble with the Basic Auth -- the feed object contains an error.
+    mtime = datetime.datetime.now()
     r = requests.get(
         url,
         headers={
@@ -54,13 +55,35 @@ def download_feed(url: str, timeout: int = 10) -> List[str]:
     )
     r.raise_for_status()
     feed = feedparser.parse(r.text)
-    return [clean_url(entry.link) for entry in feed.entries]
+    page_urls = [clean_url(entry.link) for entry in feed.entries]
+    return {page_url: mtime for page_url in page_urls}
 
 
-def save_page_urls(conn, table: str, feed_name: str, page_urls: List[str]):
-    for page_url in page_urls:
-        if not db_select(conn, table, url=page_url):
-            db_insert(conn, table, feed_name=feed_name, url=page_url)
+def save_page_urls(
+    conn, table: str, feed_name: str, page_urls: Dict[str, datetime.datetime]
+):
+    cur = conn.cursor()
+    missing_page_urls = {
+        page_url: mtime
+        for page_url, mtime in page_urls.items()
+        if not db_select(conn, table, cur=cur, url=page_url)
+    }
+    for page_url, mtime in missing_page_urls.items():
+        db_insert(
+            conn,
+            table,
+            cur=cur,
+            url=page_url,
+            feed_name=feed_name,
+            inserted=mtime,
+        )
+    conn.commit()
+    cur.close()
+    logger.info(
+        'done %s %d urls inserted',
+        feed_name.ljust(40),
+        len(missing_page_urls),
+    )
 
 
 def download_and_save_feed(
@@ -71,23 +94,25 @@ def download_and_save_feed(
 
 
 def download_feeds(
-    conn, table: str, feeds: List[Dict[str, str]], timeout: int
+    db: dict, table: str, feeds: List[Dict[str, str]], timeout: int
 ):
+    conn = db_connect(
+        host=db['host'],
+        database=db['database'],
+        user=db['user'],
+        password=db['password'],
+    )
     create_table(conn, table)
-    with ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(
-                download_and_save_feed,
+    for feed in feeds:
+        if feed.get('name') and feed.get('url'):
+            download_and_save_feed(
                 conn,
                 table=table,
                 feed_name=feed['name'],
                 feed_url=feed['url'],
                 timeout=timeout,
             )
-            for feed in feeds
-            if feed.get('name') and feed.get('url')
-        ]
-        wait(futures)
+    conn.close()
 
 
 def main():
@@ -106,15 +131,9 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-    conn = db_connect(
-        host=config['db']['host'],
-        database=config['db']['database'],
-        user=config['db']['user'],
-        password=config['db']['password'],
-    )
     download_feeds(
-        conn,
-        table=config['table_urls'],
+        db=config['db'],
+        table=config['db']['table_urls'],
         feeds=config['feeds'],
         timeout=config['download_feed_timeout'],
     )
