@@ -7,10 +7,10 @@ import random
 import re
 import sys
 import time
+from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Iterator, Sequence, Set, Tuple, Type
 
-import luigi
 import requests
 from bs4 import (
     BeautifulSoup, CData, Comment, Declaration, Doctype, NavigableString,
@@ -18,7 +18,8 @@ from bs4 import (
 )
 from bs4.element import Script, Stylesheet, TemplateString
 
-from covid_chance.utils.download_utils import clean_url, simplify_url
+from covid_chance.utils.db_utils import db_connect
+from covid_chance.utils.download_utils import simplify_url
 from covid_chance.utils.file_utils import safe_filename
 
 logger = logging.getLogger(__name__)
@@ -127,142 +128,44 @@ def get_page_text(html: str,) -> str:
     return clean_whitespace(text)
 
 
-def get_page_content_path(
-    data_path: str, feed_name: str, page_url: str
-) -> Path:
-    return (
+def download_page_text(
+    data_path: str,
+    feed_name: str,
+    page_url: str,
+    wait_interval: Tuple[int, int],
+    timeout: int,
+):
+    path = (
         Path(data_path)
         / safe_filename(feed_name)
         / safe_filename(simplify_url(page_url))
         / 'page_content.txt'
     )
-
-
-class SavePageURL(luigi.Task):
-    data_path = luigi.Parameter()
-    feed_name = luigi.Parameter()
-    page_url = luigi.Parameter()
-
-    def output(self):
-        return luigi.LocalTarget(
-            Path(self.data_path)
-            / safe_filename(self.feed_name)
-            / safe_filename(simplify_url(self.page_url))
-            / 'page_url.txt'
-        )
-
-    def run(self):
-        with self.output().open('w') as f:
-            print(self.page_url, file=f)
-
-
-class DownloadPageHTML(luigi.Task):
-    data_path = luigi.Parameter()
-    feed_name = luigi.Parameter()
-    page_url = luigi.Parameter()
-
-    wait_lower = luigi.NumericalParameter(
-        var_type=int, min_value=0, max_value=99, significant=False
+    if path.exists():
+        return False
+    html = download_page(
+        page_url, wait_interval=wait_interval, timeout=timeout,
     )
-    wait_upper = luigi.NumericalParameter(
-        var_type=int, min_value=5, max_value=99, significant=False
-    )
-    timeout = luigi.NumericalParameter(
-        var_type=int, min_value=0, max_value=99, significant=False
-    )
-
-    def output(self):
-        return luigi.LocalTarget(
-            Path(self.data_path)
-            / safe_filename(self.feed_name)
-            / safe_filename(simplify_url(self.page_url))
-            / 'page_content.html'
-        )
-
-    def requires(self):
-        return SavePageURL(
-            data_path=self.data_path,
-            feed_name=self.feed_name,
-            page_url=self.page_url,
-        )
-
-    def run(self):
-        with self.output().open('w') as f:
-            html = download_page(
-                self.page_url,
-                wait_interval=(self.wait_lower, self.wait_upper),
-                timeout=self.timeout,
-            )
-            f.write(html)
+    text = get_page_text(html)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+    return True
 
 
-class DownloadPageText(luigi.Task):
-    data_path = luigi.Parameter()
-    feed_name = luigi.Parameter()
-    page_url = luigi.Parameter()
-
-    wait_lower = luigi.NumericalParameter(
-        var_type=int, min_value=0, max_value=99, significant=False
-    )
-    wait_upper = luigi.NumericalParameter(
-        var_type=int, min_value=5, max_value=99, significant=False
-    )
-    timeout = luigi.NumericalParameter(
-        var_type=int, min_value=0, max_value=99, significant=False
-    )
-
-    def output(self):
-        return luigi.LocalTarget(
-            Path(self.data_path)
-            / safe_filename(self.feed_name)
-            / safe_filename(simplify_url(self.page_url))
-            / 'page_content.txt'
-        )
-
-    def requires(self):
-        return DownloadPageHTML(
-            data_path=self.data_path,
-            feed_name=self.feed_name,
-            page_url=self.page_url,
-            wait_lower=self.wait_lower,
-            wait_upper=self.wait_upper,
-            timeout=self.timeout,
-        )
-
-    def run(self):
-        with self.input().open('r') as f:
-            html = f.read()
-        with self.output().open('w') as f:
-            text = get_page_text(html)
-            f.write(text)
-
-
-def read_page_urls(data_path: str, feed_name: str, limit: int = 0) -> Set[str]:
-    feed_dir = Path(data_path) / safe_filename(feed_name)
-    page_urls = set()
-    paths = sorted(feed_dir.glob('feed_pages*.csv'))
-    if limit:
-        paths = paths[-limit:]
-    for p in paths:
-        with p.open('r') as f:
-            for (page_url,) in csv.reader(f):
-                page_urls.add(clean_url(page_url))
-    return page_urls
-
-
-def filter_missing_page_urls(
-    data_path: str, page_urls_by_feed: Dict[str, Set[str]]
+def select_page_urls_to_download(
+    conn, table_urls: str, table_pages: str, since: datetime.datetime
 ) -> Dict[str, Set[str]]:
-    return {
-        feed_name: set(
-            page_url
-            for page_url in page_urls
-            if not get_page_content_path(
-                data_path, feed_name, page_url
-            ).exists()
-        )
-        for feed_name, page_urls in page_urls_by_feed.items()
-    }
+    cur = conn.cursor()
+    cur.execute(
+        'SELECT u.feed_name, u.url '
+        f'FROM {table_urls} u LEFT JOIN {table_pages} p ON u.url = p.url '
+        'WHERE p.url IS NULL AND u.inserted >= %s ORDER BY u.inserted;',
+        (since,),
+    )
+    page_urls_by_feeds = defaultdict(set)
+    for feed_name, page_url in cur:
+        page_urls_by_feeds[feed_name].add(page_url)
+    return page_urls_by_feeds
 
 
 def print_stats(page_urls_by_feed: Dict[str, Set[str]]):
@@ -278,6 +181,48 @@ def print_stats(page_urls_by_feed: Dict[str, Set[str]]):
             writer.writerow(
                 {'feed_name': feed_name, 'n_pages': len(page_urls)}
             )
+
+
+def download_pages(
+    db: dict,
+    table_urls: str,
+    table_pages: str,
+    data_path: str,
+    since: datetime.datetime,
+    wait_interval: Tuple[int, int],
+    timeout: int,
+    dry_run: bool,
+):
+    conn = db_connect(
+        host=db['host'],
+        database=db['database'],
+        user=db['user'],
+        password=db['password'],
+    )
+    logger.info('Selecting pages to download since %s', since)
+    page_urls_by_feeds = select_page_urls_to_download(
+        conn, table_urls, table_pages, since
+    )
+    print_stats(page_urls_by_feeds)
+
+    page_urls_with_feed_names = []
+    for feed_name, page_urls in page_urls_by_feeds.items():
+        for page_url in page_urls:
+            page_urls_with_feed_names.append((page_url, feed_name))
+    logger.info('Pages to download: %d', len(page_urls_with_feed_names))
+    if dry_run:
+        logger.warning('This is just a dry run, not downloading any pages')
+        return
+
+    random.shuffle(page_urls_with_feed_names)
+    for page_url, feed_name in page_urls_with_feed_names:
+        download_page_text(
+            data_path=data_path,
+            feed_name=feed_name,
+            page_url=page_url,
+            wait_interval=wait_interval,
+            timeout=timeout,
+        )
 
 
 def main():
@@ -297,45 +242,18 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-
-    page_urls_by_feed = {
-        feed['name']: read_page_urls(
-            args.data,
-            feed['name'],
-            limit=config['download_num_latest_feed_pages_csvs'],
-        )
-        for feed in config['feeds']
-        if feed.get('name')
-    }
-    missing_page_urls_by_feed = filter_missing_page_urls(
-        args.data, page_urls_by_feed
-    )
-    print_stats(missing_page_urls_by_feed)
-
-    tasks = []
-    for feed_name, page_urls in missing_page_urls_by_feed.items():
-        for page_url in page_urls:
-            tasks.append(
-                DownloadPageText(
-                    data_path=args.data,
-                    feed_name=feed_name,
-                    page_url=page_url,
-                    wait_lower=config['download_wait_lower'],
-                    wait_upper=config['download_wait_upper'],
-                    timeout=config['download_page_timeout'],
-                )
-            )
-    logger.info('Tasks to run: %d', len(tasks))
-    if args.dry_run:
-        logger.warning('This is just a dry run, not downloading any pages')
-        return
-    random.shuffle(tasks)
-    luigi.build(
-        tasks,
-        workers=2,
-        local_scheduler=True,
-        parallel_scheduling=True,
-        log_level='WARNING',
+    download_pages(
+        db=config['db'],
+        table_urls=config['db']['table_urls'],
+        table_pages=config['db']['table_pages'],
+        data_path=args.data,
+        since=datetime.datetime.fromisoformat(config['download_pages_since']),
+        wait_interval=(
+            int(config['download_page_wait_interval'][0]),
+            int(config['download_page_wait_interval'][1]),
+        ),
+        timeout=int(config['download_page_timeout']),
+        dry_run=args.dry_run,
     )
 
 
