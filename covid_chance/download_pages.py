@@ -180,8 +180,8 @@ def download_page_text(
         html = download_page(
             page_url, wait_interval=wait_interval, timeout=timeout,
         )
-    except Exception:
-        logger.error('Failed to download %s', page_url)
+    except Exception as e:
+        logger.error('Failed to download %s: %s', page_url, e)
         return None
     text = get_page_text(html)
     path.parent.mkdir(parents=True, exist_ok=True)
