@@ -161,15 +161,14 @@ def get_page_text(html: str) -> str:
 
 
 def download_page_text(
-    data_path: str,
+    cache_path: str,
     feed_name: str,
     page_url: str,
     wait_interval: Tuple[int, int],
     timeout: int,
 ) -> Optional[str]:
     path = (
-        Path(data_path)
-        / safe_filename(feed_name)
+        Path(cache_path)
         / safe_filename(simplify_url(page_url))
         / 'page_content.txt'
     )
@@ -224,7 +223,7 @@ def download_pages(
     db: dict,
     table_urls: str,
     table_pages: str,
-    data_path: str,
+    cache_path: str,
     since: datetime.datetime,
     wait_interval: Tuple[int, int],
     timeout: int,
@@ -257,7 +256,7 @@ def download_pages(
     for i, (page_url, feed_name) in enumerate(page_urls_with_feed_names):
         logger.info('%d/%d Downloading %s', i + 1, total, page_url)
         text = download_page_text(
-            data_path=data_path,
+            cache_path=cache_path,
             feed_name=feed_name,
             page_url=page_url,
             wait_interval=wait_interval,
@@ -290,7 +289,7 @@ def main():
         db=config['db'],
         table_urls=config['db']['table_urls'],
         table_pages=config['db']['table_pages'],
-        data_path=args.data,
+        cache_path=Path(args.data) / 'cache',
         since=datetime.datetime.fromisoformat(config['download_pages_since']),
         wait_interval=(
             int(config['download_page_wait_interval'][0]),
