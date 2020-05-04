@@ -72,14 +72,19 @@ def save_page_urls(
         if not db_select(conn, table, cur=cur, url=page_url)
     ]
     for page_url in missing_page_urls:
-        db_insert(
-            conn,
-            table,
-            cur=cur,
-            url=page_url,
-            feed_name=feed_name,
-            inserted=mtime,
-        )
+        try:
+            db_insert(
+                conn,
+                table,
+                cur=cur,
+                url=page_url,
+                feed_name=feed_name,
+                inserted=mtime,
+            )
+        except Exception as e:
+            logger.error(
+                'Error while inserting new URL in the db %s %s', page_url, e
+            )
     conn.commit()
     cur.close()
     logger.info(
