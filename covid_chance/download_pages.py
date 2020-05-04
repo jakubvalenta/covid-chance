@@ -33,7 +33,7 @@ def create_table(conn, table: str):
         cur.execute(
             f'''
 CREATE TABLE {table} (
-  url text,
+  url text UNIQUE,
   text text,
   inserted timestamp DEFAULT NOW()
 );
