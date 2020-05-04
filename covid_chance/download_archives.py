@@ -3,19 +3,44 @@ import datetime
 import json
 import logging
 import sys
-from pathlib import Path
 from typing import Dict, List, Optional
 from urllib.parse import urlsplit
 
+import psycopg2
+import psycopg2.errorcodes
 import requests
 
-from covid_chance.utils.file_utils import safe_filename
+from covid_chance.utils.db_utils import db_connect, db_insert, db_select
 
 logger = logging.getLogger(__name__)
 
 
 class ArchiveError(Exception):
     pass
+
+
+def create_table(conn, table: str):
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            f'''
+CREATE TABLE {table} (
+  feed_url text,
+  archived_url text,
+  date timestamp DEFAULT NOW(),
+  inserted timestamp DEFAULT NOW()
+);
+CREATE INDEX index_{table}_feed_url ON {table} (feed_url);
+CREATE INDEX index_{table}_date ON {table} (date);
+'''
+        )
+    except psycopg2.ProgrammingError as e:
+        if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
+            pass
+        else:
+            raise
+    conn.commit()
+    cur.close()
 
 
 def get_from_web_archive(url: str, *args, **kwargs) -> requests.Response:
@@ -47,37 +72,33 @@ def find_closest_snapshot_url(url: str, date: datetime.date) -> Optional[str]:
     return snapshot_url
 
 
-def download_feed_archive(
-    data_path: str, feed_name: str, feed_url: str, date: datetime.date
-):
-    output_path = (
-        Path(data_path)
-        / safe_filename(feed_name)
-        / f'feed_archived-{date.isoformat()}.json'
-    )
-    if output_path.exists():
-        return
-    archived_feed_url = find_closest_snapshot_url(feed_url, date)
-    data = {
-        'timestamp': date.isoformat(),
-        'url': archived_feed_url,
-    }
-    with output_path.open('w') as f:
-        json.dump(data, f)
-
-
 def download_feed_archives(
-    data_path: str, feeds: List[Dict[str, str]], dates: List[datetime.date]
+    db: dict,
+    table: str,
+    feeds: List[Dict[str, str]],
+    dates: List[datetime.datetime],
 ):
+    conn = db_connect(
+        host=db['host'],
+        database=db['database'],
+        user=db['user'],
+        password=db['password'],
+    )
+    create_table(conn, table)
     for feed in feeds:
         if feed.get('name') and feed.get('url'):
             for date in dates:
-                download_feed_archive(
-                    data_path=data_path,
-                    feed_name=feed['name'],
-                    feed_url=feed['url'],
-                    date=date,
-                )
+                if not db_select(conn, table, feed_url=feed['url'], date=date):
+                    archived_url = find_closest_snapshot_url(feed['url'], date)
+                    db_insert(
+                        conn,
+                        table,
+                        feed_url=feed['url'],
+                        archived_url=archived_url,
+                        date=date,
+                    )
+    conn.commit()
+    conn.close()
 
 
 def main():
@@ -97,10 +118,11 @@ def main():
     with open(args.config, 'r') as f:
         config = json.load(f)
     download_feed_archives(
-        data_path=args.data,
+        db=config['db'],
+        table=config['db']['table_archives'],
         feeds=config['feeds'],
         dates=[
-            datetime.date.fromisoformat(d) for d in config['archive_dates']
+            datetime.datetime.fromisoformat(d) for d in config['archive_dates']
         ],
     )
 

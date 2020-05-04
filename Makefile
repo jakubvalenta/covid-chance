@@ -6,18 +6,18 @@ config_path ?= $(HOME)/.config/covid-chance/config.json
 secrets_path ?= $(HOME)/.config/covid-chance/secrets.json
 
 .PHONY: download-feeds
-download-feeds:  ## Download feeds
+download-feeds:  ## Download current feeds
 	"./$(_executable)" python -m "$(_python_pkg).download_feeds" \
 		-v --data "$(data_path)" --config "$(config_path)"
 
-.PHONY: download-feed-archives
-download-feed-archives:  ## Download URLs of feeds archived in the Internet Archive
-	"./$(_executable)" python -m "$(_python_pkg).download_feed_archives" \
+.PHONY: download-archives
+download-archives:  ## Save URLs of feeds archived by the Internet Archive
+	"./$(_executable)" python -m "$(_python_pkg).download_archives" \
 		-v --data "$(data_path)" --config "$(config_path)"
 
-.PHONY: download-archived-feeds
-download-archived-feeds:  ## Download feeds from the Internet Archive
-	"./$(_executable)" python -m "$(_python_pkg).download_archived_feeds" \
+.PHONY: download-feeds-from-archives
+download-feeds-from-archives:  ## Download feeds from the saved Internet Archive URLs
+	"./$(_executable)" python -m "$(_python_pkg).download_feeds_from_archives" \
 		-v --data "$(data_path)" --config "$(config_path)"
 
 .PHONY: download-pages
