@@ -248,7 +248,7 @@ def download_pages(
         for page_url in page_urls:
             page_urls_with_feed_names.append((page_url, feed_name))
     total = len(page_urls_with_feed_names)
-    logger.info('Pages to download: %d',)
+    logger.info('Pages to download: %d', total)
     if dry_run:
         logger.warning('This is just a dry run, not downloading any pages')
         return
