@@ -75,7 +75,9 @@ def download_archived_feeds(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--data', help='Data path', default='./data')
+    parser.add_argument(
+        '--cache', help='Cache directory path', default='./cache'
+    )
     parser.add_argument(
         '-c', '--config', help='Configuration file path', required=True
     )
@@ -93,7 +95,7 @@ def main():
         db=config['db'],
         table_archives=config['db']['table_archives'],
         table_urls=config['db']['table_urls'],
-        cache_path=Path(args.data) / 'feeds',
+        cache_path=Path(args.cache) / 'feeds',
         feeds=config['feeds'],
         timeout=config['download_feed_timeout'],
     )

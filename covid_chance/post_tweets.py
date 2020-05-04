@@ -113,7 +113,6 @@ def post_tweet(text: str, secrets: Dict[str, str], dry_run: bool = True):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--data', help='Data path', default='./data')
     parser.add_argument(
         '-c', '--config', help='Configuration file path', required=True
     )

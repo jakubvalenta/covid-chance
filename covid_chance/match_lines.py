@@ -135,7 +135,6 @@ def match_lines(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--data', help='Data path', default='./data')
     parser.add_argument(
         '-c', '--config', help='Configuration file path', required=True
     )

@@ -270,7 +270,9 @@ def download_pages(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--data', help='Data path', default='./data')
+    parser.add_argument(
+        '--cache', help='Cache directory path', default='./cache'
+    )
     parser.add_argument(
         '-c', '--config', help='Configuration file path', required=True
     )
@@ -289,7 +291,7 @@ def main():
         db=config['db'],
         table_urls=config['db']['table_urls'],
         table_pages=config['db']['table_pages'],
-        cache_path=Path(args.data) / 'cache',
+        cache_path=Path(args.cache) / 'pages',
         since=datetime.datetime.fromisoformat(config['download_pages_since']),
         wait_interval=(
             int(config['download_page_wait_interval'][0]),
