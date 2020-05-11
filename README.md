@@ -1,7 +1,7 @@
 # Covid-19 is...
 
 A Twitter account that tweets about all the chances and opportunities Covid-19
-gives us. [@covid_chance](https://twitter.com/covid_chance)
+gives us. [\@covid_chance](https://twitter.com/covid_chance)
 
 ![Coronavirus Opportunity Bot](./screenshots/covid-chance.png)
 
@@ -48,8 +48,8 @@ This program works in the following steps:
    them to plain text and store the text.
 3. **Search the text content** of the pages for specified keywords and store the
    text paragraphs that match.
-4. **Create tweets** from the stored paragraphs by applying a specific
-   formatting pattern.
+4. **Create tweets** from the stored paragraphs by applying a regular
+   expression.
 5. **Manually review** the created tweets using an interactive command-line interface.
 6. **Post the tweets** to Twitter.
 
@@ -79,7 +79,7 @@ Start by copying the sample configuration file
 $ cp config.sample.json ~/.config/covid-chance/config.json
 ```
 
-Then configure the PostgreSQL database connection. Example:
+Then open the file and configure the PostgreSQL database connection. Example:
 
 ```
 {
@@ -136,7 +136,7 @@ Example:
 }
 ```
 
-#### Running the step
+#### Running this step
 
 ``` shell
 $ make download-feeds
@@ -206,14 +206,14 @@ using the `download_pages.timeout` property.
 }
 ```
 
-#### Running the step
+#### Running this step
 
 ``` shell
 $ make download-pages
 ```
 
 This will download the HTML content of all the pages from all the URLs stored in
-the database, convert the HTML to plain text and store it to database.
+the database, convert the HTML to plain text and store it in the database.
 
 Running this step repeatedly will not download the pages whose plain text
 content is already stored in the database again. That means this step is
@@ -239,7 +239,7 @@ and store the text paragraphs that match in the database.
 #### Configuration
 
 Put the keywords to search the downloaded web pages for in the
-`match_pages.keyword_lists` array. Each item of the array must be another array
+`match_lines.keyword_lists` array. Each item of the array must be another array
 of keywords. A paragraph is considered matching when it contains at least one
 keyword from each of the arrays. The matching is case-insensitive. Example:
 
@@ -257,7 +257,7 @@ keyword from each of the arrays. The matching is case-insensitive. Example:
 ```
 
 This configuration matches a paragraph that contains either "coronavirus" or
-"covid" and a the same time either "chance" or "opportunity". The following
+"covid" and at the same time either "chance" or "opportunity". The following
 paragraphs will all match:
 
 - "Coronavirus is a great opportunity."
@@ -269,7 +269,7 @@ But these paragraph will not:
 - "Covid-19 can teach us something."
 - "The lockdown is a great opportunity."
 
-#### Running the step
+#### Running this step
 
 ``` shell
 $ make match-lines
@@ -313,7 +313,7 @@ tweet.
 }
 ```
 
-#### Running the step
+#### Running this step
 
 ``` shell
 $ make parse-lines
@@ -360,7 +360,7 @@ the text of the tweet exceeds the limit.
 }
 ```
 
-#### Running the step
+#### Running this step
 
 ``` shell
 $ make review-tweets
@@ -374,13 +374,14 @@ database.
 Running this step repeatedly will not ask you to review already reviewed
 tweets. That means this step is idempotent.
 
-If you would like to review again all tweets, run:
+If you would like to review again all tweets (approved or rejected), run:
 
 ``` shell
 $ make review-tweets-all
 ```
 
-If you would like to review again all approved tweets, run:
+If you would like to review again all approved tweets (but not the rejected
+ones), run:
 
 ``` shell
 $ make review-tweets-approved
@@ -394,18 +395,24 @@ of the configuration file and the cache directory. See the documentation of the
 
 The last step is to post an approved tweet to Twitter.
 
-#### Configuration
+#### Twitter secrets
 
-Put you Twitter credentials in the file `~/.config/secrets.json`. Use
-[secrets.sample.json](./secrets.sample.json) as a template.
+Create a JSON file with your Twitter secrets in any location based on the sample
+[secrets.sample.json](./secrets.sample.json):
+
+``` shell
+$ cp secrets.sample.json ~/.config/covid-chance/secrets.json
+```
+
+#### Configuration
 
 Define the name of your Twitter profile in the property
 `post_tweet.profile_name` and the description in the property
 `post_tweet.profile_description_template`. This step will update your Twitter
 profile with these values every time it's run. The description is a Python
 template string that can contain the variables `${n_posted}` and `${n_total}`
-which will be filled in with the number of tweets already posted and with the
-total number of approved tweets respectively.
+which will be filled with the number of tweets already posted and with the total
+number of approved tweets respectively.
 
 Optionally, you can defined a template string for each tweet in the
 `post_tweet.tweet_template` property. This is a Python template string that can
@@ -425,7 +432,7 @@ useful to include static hashtags in the tweet text.
 }
 ```
 
-#### Running the step
+#### Running this step
 
 ``` shell
 $ make post-tweet
@@ -438,7 +445,7 @@ Running this step repeatedly will not post already posted Tweets again. That
 means this step is idempotent.
 
 Alternatively, you can run this step in an interactive mode, which will ask you
-using a command line for a confirmation before posting the tweet.
+on the command line for a confirmation before posting the tweet.
 
 ``` shell
 $ make post-tweet-interactive
@@ -459,9 +466,16 @@ You can run several steps at the same time (in sequence) and in a cron job. Exam
 0 * * * *  cd ~/covid-chance && make post-tweet
 ```
 
-Such a crontab will download the feeds and pages and process them every half an
-hour and post one tweet every hour. Now you just need to make sure to run `make
-review-tweets` from time to time and approve some tweets.
+Such a cron table will:
+
+- download fresh feeds, download all pages, and create the tweets every half an hour
+- post one random tweet every hour
+
+You still need to manually review the tweets created by the first cron job to make the second cron job post them:
+
+``` shell
+$ make review-tweets
+```
 
 ### Other features
 
