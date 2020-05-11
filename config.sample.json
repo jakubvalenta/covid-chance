@@ -1,18 +1,47 @@
 {
+  "db": {
+    "host": "/run/postgresql",
+    "database": "covid_chance",
+    "user": "postgres",
+    "password": "postgres",
+    "table_archives": "archives",
+    "table_lines": "lines",
+    "table_pages": "pages",
+    "table_parsed": "parsed",
+    "table_posted": "posted",
+    "table_reviewed": "reviewed",
+    "table_urls": "urls"
+  },
   "feeds": [
     {
-      "name": "Example feed",
+      "name": "Example Feed",
       "url": "https://www.example.com/rss.xml"
-    },
-    {
-      "name": "Another feed",
-      "url": "https://www.example.com/foo/atom"
     }
   ],
-  "match_line": [
-    ["one", "of", "these keywords"],
-    ["and at the same time", "one", "of", "these"]
-  ],
-  "parse_pattern": "(?P<parsed>some words until end of sentence .+?)([\\.?!;,]|$)",
-  "tweet_template": "${parsed} #FooHashtag ${url}"
+  "download_feeds": {
+    "timeout": 30
+  },
+  "download_pages": {
+    "since": "2020-03-01",
+    "wait_min": 0,
+    "wait_max": 0,
+    "timeout": 10
+  },
+  "match_lines": {
+    "keyword_lists": [
+      ["coronavirus", "covid"],
+      ["chance", "opportunity"]
+    ]
+  },
+  "parse_lines": {
+    "pattern": "(?P<parsed>.+)"
+  },
+  "review_tweets": {
+    "max_tweet_length": 247
+  },
+  "post_tweet": {
+    "profile_name": "Covid-19 is...",
+    "profile_description_template": "${n_posted}/${n_total}",
+    "tweet_template": "${text} ${url}"
+  }
 }

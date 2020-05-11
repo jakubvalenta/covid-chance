@@ -12,6 +12,7 @@ import psycopg2.errorcodes
 import requests
 
 from covid_chance.utils.db_utils import db_connect, db_insert, db_select
+from covid_chance.utils.dict_utils import deep_get
 from covid_chance.utils.download_utils import clean_url
 
 logger = logging.getLogger(__name__)
@@ -153,7 +154,9 @@ def main():
         db=config['db'],
         table=config['db']['table_urls'],
         feeds=config['feeds'],
-        timeout=config['download_feed_timeout'],
+        timeout=deep_get(
+            config, ['download_feeds', 'timeout'], default=30, process=int
+        ),
     )
 
 

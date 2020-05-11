@@ -12,6 +12,7 @@ import twitter
 
 from covid_chance.review_tweets import REVIEW_STATUS_APPROVED, Tweet
 from covid_chance.utils.db_utils import db_connect, db_insert
+from covid_chance.utils.dict_utils import deep_get
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +169,10 @@ def main():
 
     i = random.randint(0, total_pending_tweets - 1)
     tweet = pending_tweets[i]
-    text = Template(config['tweet_template']).substitute(
+    template_str = deep_get(
+        config, ['post_tweet', 'tweet_template'], default='${text} ${url}'
+    )
+    text = Template(template_str).substitute(
         text=tweet.text, url=tweet.page_url
     )
 
@@ -187,9 +191,9 @@ def main():
                 return
         post_tweet(text, secrets, args.dry_run)
 
-        name = config['profile_name']
+        name = config['post_tweet']['profile_name']
         description = Template(
-            config['profile_description_template']
+            config['post_tweet']['profile_description_template']
         ).substitute(
             n_posted=total_posted_tweets + 1, n_approved=total_approved_tweets
         )

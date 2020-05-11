@@ -150,7 +150,7 @@ def main():
         config = json.load(f)
     match_lines(
         db=config['db'],
-        keyword_lists=config['keyword_lists'],
+        keyword_lists=config['match_lines']['keyword_lists'],
         table_lines=config['db']['table_lines'],
         table_pages=config['db']['table_pages'],
     )

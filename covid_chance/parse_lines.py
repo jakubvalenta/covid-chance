@@ -64,9 +64,9 @@ def get_lines(conn, table: str) -> Iterator[tuple]:
 
 
 def parse_lines_one(
-    conn, table: str, i: int, page_url: str, line: str, parse_pattern: str, rx
+    conn, table: str, i: int, page_url: str, line: str, pattern: str, rx
 ):
-    param_hash = hashobj(parse_pattern)
+    param_hash = hashobj(pattern)
     if db_select(conn, table, line=line, param_hash=param_hash):
         return
     logger.info('%d Parsed %s', i, page_url)
@@ -81,16 +81,14 @@ def parse_lines_one(
         )
 
 
-def parse_lines(
-    db: dict, parse_pattern: str, table_lines: str, table_parsed: str
-):
+def parse_lines(db: dict, pattern: str, table_lines: str, table_parsed: str):
     conn = db_connect(
         host=db['host'],
         database=db['database'],
         user=db['user'],
         password=db['password'],
     )
-    rx = regex.compile(parse_pattern)
+    rx = regex.compile(pattern)
     create_table(conn, table_parsed)
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
@@ -101,7 +99,7 @@ def parse_lines(
                 i,
                 page_url,
                 line,
-                parse_pattern,
+                pattern,
                 rx,
             )
             for i, (page_url, line) in enumerate(get_lines(conn, table_lines))
@@ -131,7 +129,7 @@ def main():
         config = json.load(f)
     parse_lines(
         db=config['db'],
-        parse_pattern=config['parse_pattern'],
+        pattern=config['parse_lines']['pattern'],
         table_lines=config['db']['table_lines'],
         table_parsed=config['db']['table_parsed'],
     )

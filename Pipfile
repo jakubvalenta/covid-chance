@@ -11,10 +11,10 @@ mypy = "*"
 
 [packages]
 beautifulsoup4 = "*"
+colored = "*"
 feedparser = "*"
 lxml = "*"
+psycopg2 = "*"
 python-twitter = "*"
 regex = "*"
 requests = "*"
-colored = "*"
-psycopg2 = "*"

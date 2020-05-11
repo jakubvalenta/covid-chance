@@ -10,6 +10,7 @@ from covid_chance.download_feeds import (
     clean_url, create_table, download_feed, save_page_urls,
 )
 from covid_chance.utils.db_utils import db_connect
+from covid_chance.utils.dict_utils import deep_get
 from covid_chance.utils.file_utils import safe_filename
 
 logger = logging.getLogger(__name__)
@@ -97,7 +98,9 @@ def main():
         table_urls=config['db']['table_urls'],
         cache_path=Path(args.cache) / 'feeds',
         feeds=config['feeds'],
-        timeout=config['download_feed_timeout'],
+        timeout=deep_get(
+            config, ['download_feeds', 'timeout'], default=30, process=int
+        ),
     )
 
 

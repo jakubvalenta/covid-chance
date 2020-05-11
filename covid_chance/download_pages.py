@@ -21,6 +21,7 @@ from bs4 import (
 from bs4.element import Script, Stylesheet, TemplateString
 
 from covid_chance.utils.db_utils import db_connect, db_insert
+from covid_chance.utils.dict_utils import deep_get
 from covid_chance.utils.download_utils import simplify_url
 from covid_chance.utils.file_utils import safe_filename
 
@@ -182,21 +183,34 @@ def download_page_text(
     except Exception as e:
         logger.error('Failed to download %s: %s', page_url, e)
         return None
-    text = get_page_text(html)
+    try:
+        text = get_page_text(html)
+    except RecursionError:
+        logger.error(
+            'Recursion error while trying to parse page text.'
+            'It\'s probably not HTML.'
+        )
+        text = ''
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text)
     return text
 
 
 def select_page_urls_to_download(
-    conn, table_urls: str, table_pages: str, since: datetime.datetime
+    conn, table_urls: str, table_pages: str, since: Optional[datetime.datetime]
 ) -> Dict[str, Set[str]]:
     cur = conn.cursor()
+    where = 'p.url IS NULL'
+    if since:
+        where += ' AND u.inserted >= %s'
+        params: tuple = (since,)
+    else:
+        params = ()
     cur.execute(
         'SELECT u.feed_name, u.url '
         f'FROM {table_urls} u LEFT JOIN {table_pages} p ON u.url = p.url '
-        'WHERE p.url IS NULL AND u.inserted >= %s ORDER BY u.inserted;',
-        (since,),
+        f'WHERE {where} ORDER BY u.inserted;',
+        params,
     )
     page_urls_by_feeds = defaultdict(set)
     for feed_name, page_url in cur:
@@ -224,7 +238,7 @@ def download_pages(
     table_urls: str,
     table_pages: str,
     cache_path: str,
-    since: datetime.datetime,
+    since: Optional[datetime.datetime],
     wait_interval: Tuple[int, int],
     timeout: int,
     dry_run: bool,
@@ -236,24 +250,29 @@ def download_pages(
         password=db['password'],
     )
     create_table(conn, table_pages)
-    logger.info('Selecting pages to download since %s', since)
+    logger.info(
+        'Selecting pages to download since %s',
+        since or 'the beginning of time',
+    )
     page_urls_by_feeds = select_page_urls_to_download(
         conn, table_urls, table_pages, since
     )
     print_stats(page_urls_by_feeds)
 
-    page_urls_with_feed_names = []
+    page_urls_with_feed_names = {}
     for feed_name, page_urls in page_urls_by_feeds.items():
         for page_url in page_urls:
-            page_urls_with_feed_names.append((page_url, feed_name))
+            if page_url not in page_urls_with_feed_names:
+                page_urls_with_feed_names[page_url] = feed_name
     total = len(page_urls_with_feed_names)
     logger.info('Pages to download: %d', total)
     if dry_run:
         logger.warning('This is just a dry run, not downloading any pages')
         return
 
-    random.shuffle(page_urls_with_feed_names)
-    for i, (page_url, feed_name) in enumerate(page_urls_with_feed_names):
+    page_urls_with_feed_names_list = list(page_urls_with_feed_names.items())
+    random.shuffle(page_urls_with_feed_names_list)
+    for i, (page_url, feed_name) in enumerate(page_urls_with_feed_names_list):
         logger.info('%d/%d Downloading %s', i + 1, total, page_url)
         text = download_page_text(
             cache_path=cache_path,
@@ -292,12 +311,23 @@ def main():
         table_urls=config['db']['table_urls'],
         table_pages=config['db']['table_pages'],
         cache_path=Path(args.cache) / 'pages',
-        since=datetime.datetime.fromisoformat(config['download_pages_since']),
-        wait_interval=(
-            int(config['download_page_wait_interval'][0]),
-            int(config['download_page_wait_interval'][1]),
+        since=deep_get(
+            config,
+            ['download_pages', 'since'],
+            default=None,
+            process=datetime.datetime.fromisoformat,
         ),
-        timeout=int(config['download_page_timeout']),
+        wait_interval=(
+            deep_get(
+                config, ['download_pages', 'wait_min'], default=0, process=int
+            ),
+            deep_get(
+                config, ['download_pages', 'wait_max'], default=0, process=int
+            ),
+        ),
+        timeout=deep_get(
+            config, ['download_pages', 'timeout'], default=10, process=int
+        ),
         dry_run=args.dry_run,
     )
 

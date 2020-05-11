@@ -14,6 +14,7 @@ import psycopg2.errorcodes
 from covid_chance.utils.db_utils import (
     db_connect, db_count, db_update_or_insert,
 )
+from covid_chance.utils.dict_utils import deep_get
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +191,9 @@ def main():
     with open(args.config, 'r') as f:
         config = json.load(f)
 
+    max_tweet_length = deep_get(
+        config, ['review_tweets', 'max_tweet_length'], default=247
+    )
     conn = db_connect(
         database=config['db']['database'],
         user=config['db']['user'],
@@ -209,7 +213,7 @@ def main():
         t for t in reviewed_tweets if t.status == REVIEW_STATUS_REJECTED
     ]
     invalid_approved_tweets = [
-        t for t in approved_tweets if len(t.text) > config['max_tweet_length']
+        t for t in approved_tweets if len(t.text) > max_tweet_length
     ]
     if args.all:
         pending_tweets = tweets
@@ -237,7 +241,7 @@ def main():
             tweet,
             i=i + 1,
             total=total_pending_tweets,
-            max_tweet_length=config['max_tweet_length'],
+            max_tweet_length=max_tweet_length,
             highlight=True,
         )
         inp = None

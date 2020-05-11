@@ -47,12 +47,12 @@ review-tweets-approved:  ## Review approved tweets again
 
 .PHONY: post-tweet
 post-tweet:  ## Post one random reviewed tweet
-	"./$(_executable)" python -m "$(_python_pkg).post_tweets" -v --config "$(config_path)" \
+	"./$(_executable)" python -m "$(_python_pkg).post_tweet" -v --config "$(config_path)" \
 		--secrets "$(secrets_path)"
 
 .PHONY: post-tweet-interactive
 post-tweet-interactive:  ## Post one random reviewed tweet (ask before posting)
-	"./$(_executable)" python -m "$(_python_pkg).post_tweets" -v --config "$(config_path)" \
+	"./$(_executable)" python -m "$(_python_pkg).post_tweet" -v --config "$(config_path)" \
 		--secrets "$(secrets_path)" --interactive
 
 .PHONY: print-stats
