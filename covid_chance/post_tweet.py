@@ -176,45 +176,41 @@ def main():
         text=tweet.text, url=tweet.page_url
     )
 
-    try:
-        logger.warning(
-            '%d/%d/%d posting tweet "%s"',
-            i,
-            total_pending_tweets,
-            total_approved_tweets,
-            text,
-        )
-        if args.interactive:
-            inp = input('Are you sure you want to post this tweet? [y/N] ')
-            if inp != 'y':
-                print('Bailing out!')
-                return
-        post_tweet(text, secrets, args.dry_run)
+    logger.warning(
+        '%d/%d/%d posting tweet "%s"',
+        i,
+        total_pending_tweets,
+        total_approved_tweets,
+        text,
+    )
+    if args.interactive:
+        inp = input('Are you sure you want to post this tweet? [y/N] ')
+        if inp != 'y':
+            print('Bailing out!')
+            return
+    post_tweet(text, secrets, args.dry_run)
 
-        name = config['post_tweet']['profile_name']
-        description = Template(
-            config['post_tweet']['profile_description_template']
-        ).substitute(
-            n_posted=total_posted_tweets + 1, n_approved=total_approved_tweets
+    name = config['post_tweet']['profile_name']
+    description = Template(
+        config['post_tweet']['profile_description_template']
+    ).substitute(
+        n_posted=total_posted_tweets + 1, n_approved=total_approved_tweets
+    )
+    if not args.dry_run:
+        db_insert(
+            conn,
+            table_posted,
+            url=tweet.page_url,
+            line=tweet.line,
+            parsed=tweet.parsed,
+            status=tweet.status,
+            edited=tweet.edited,
+            tweet=text,
         )
-        logger.warning(
-            'Updating profile, name: "%s", description: "%s"',
-            name,
-            description,
-        )
-        update_profile(name, description, secrets, args.dry_run)
-    finally:
-        if not args.dry_run:
-            db_insert(
-                conn,
-                table_posted,
-                url=tweet.page_url,
-                line=tweet.line,
-                parsed=tweet.parsed,
-                status=tweet.status,
-                edited=tweet.edited,
-                tweet=text,
-            )
+    logger.warning(
+        'Updating profile, name: "%s", description: "%s"', name, description,
+    )
+    update_profile(name, description, secrets, args.dry_run)
 
 
 if __name__ == '__main__':
