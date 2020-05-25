@@ -1,7 +1,7 @@
 # Covid-19 is...
 
 A Twitter account that tweets about all the chances and opportunities Covid-19
-gives us. [\@covid_chance](https://twitter.com/covid_chance)
+gives us. [twitter.com/covid_chance](https://twitter.com/covid_chance)
 
 ![Coronavirus Opportunity Bot](./screenshots/covid-chance.png)
 
@@ -83,7 +83,7 @@ Then open the file and configure the PostgreSQL database connection. Example:
 
 ```
 {
-  ...,
+  ...
   "db": {
     "host": "/run/postgresql",
     "database": "covid_chance",
@@ -111,7 +111,7 @@ found in those feeds in the database.
 Configure this step by putting human-readable RSS/Atom feed names and URLs into
 the object `feeds` of the configuration file.
 
-Optionally, you can define a timeout in seconds for the download of one feed
+Optionally, you can specify a timeout in seconds for the download of one feed
 using the `download_feeds.timeout` property.
 
 Example:
@@ -142,8 +142,8 @@ Example:
 $ make download-feeds
 ```
 
-This will download the latest version of the feeds defined in the configuration
-and save the URLs of the pages in the database.
+This will download the latest version of the feeds specified in the
+configuration and save the URLs of the pages in the database.
 
 Running this command repeatedly will always download the latest version of the
 feeds. That means this step is not idempotent.
@@ -167,9 +167,9 @@ Downloading feed https://www.example.com/rss.xml
 done Example Feed                             1 urls inserted
 ```
 
-This means 1 new URL has been found in the feed and was stored in the
-database. All the other URLs in the feed were already in the database, so they
-were not inserted again.
+This means 1 new URL was found in the feed and was stored in the database. All
+the other URLs in the feed were already in the database, so they were not
+inserted again.
 
 ### 2. Download pages
 
@@ -180,17 +180,17 @@ the database.
 
 This step doesn't have any required configuration.
 
-Optionally, you can put a date in the format `YYYY-MM-DD` in the
+Optionally, you can specify a date in the format `YYYY-MM-DD` in the
 `download_pages.since` property. URLs that were inserted in the database before
 this date will not be downloaded. This is useful to limit the amount of pages to
 download and lower the load on the server(s) you're downloading from.
 
-Optionally, you can define a minimum and maximum time in seconds that the
+Optionally, you can specify a minimum and maximum time in seconds that the
 program will wait before each page download using the `download_pages.wait_min`
 and `download_pages.wait_max` properties. This is useful to lower the load on
 the server(s) you're downloading from.
 
-Optionally, you can define a timeout in seconds for the download of one page
+Optionally, you can specify a timeout in seconds for the download of one page
 using the `download_pages.timeout` property.
 
 ```
@@ -238,7 +238,7 @@ and store the text paragraphs that match in the database.
 
 #### Configuration
 
-Put the keywords to search the downloaded web pages for in the
+Specify the keywords to search the downloaded web pages for in the
 `match_lines.keyword_lists` array. Each item of the array must be another array
 of keywords. A paragraph is considered matching when it contains at least one
 keyword from each of the arrays. The matching is case-insensitive. Example:
@@ -300,7 +300,7 @@ expression will be ignored.
 #### Configuration
 
 Put the regular expression in the property `parse_lines.pattern`. The regular
-expression must define a group named `parsed` -- this will be the text of the
+expression must contain a named group `parsed` -- this will be the text of the
 tweet.
 
 ```
@@ -345,7 +345,7 @@ command-line interface.
 
 This step doesn't have any required configuration.
 
-Optionally, you can define the maximum tweet length in characters (doesn't
+Optionally, you can specify the maximum tweet length in characters (doesn't
 include shortened URL) using the property `review_tweets.max_tweet_length`, but
 the default should be accurate. The interactive script will show a warning when
 the text of the tweet exceeds the limit.
@@ -374,14 +374,14 @@ database.
 Running this step repeatedly will not ask you to review already reviewed
 tweets. That means this step is idempotent.
 
-If you would like to review again all tweets (approved or rejected), run:
+If you would like to review all tweets (approved and rejected) again, run:
 
 ``` shell
 $ make review-tweets-all
 ```
 
-If you would like to review again all approved tweets (but not the rejected
-ones), run:
+If you would like to review all approved tweets (but not the rejected ones)
+again, run:
 
 ``` shell
 $ make review-tweets-approved
@@ -406,17 +406,17 @@ $ cp secrets.sample.json ~/.config/covid-chance/secrets.json
 
 #### Configuration
 
-Define the name of your Twitter profile in the property
+Specify the name of your Twitter profile in the property
 `post_tweet.profile_name` and the description in the property
 `post_tweet.profile_description_template`. This step will update your Twitter
 profile with these values every time it's run. The description is a Python
 template string that can contain the variables `${n_posted}` and `${n_total}`
-which will be filled with the number of tweets already posted and with the total
+that will be filled with the number of tweets already posted and with the total
 number of approved tweets respectively.
 
-Optionally, you can defined a template string for each tweet in the
+Optionally, you can specidy a template string for each tweet in the
 `post_tweet.tweet_template` property. This is a Python template string that can
-contain the variables `${text}` and `${url}` which will be filled with the text
+contain the variables `${text}` and `${url}` that will be filled with the text
 of the tweet and the URL of the page from which the text was parsed. This is
 useful to include static hashtags in the tweet text.
 
@@ -441,8 +441,7 @@ $ make post-tweet
 This will post one random approved tweet to Twitter and set your Twitter profile
 name and description according to the configuration.
 
-Running this step repeatedly will not post already posted Tweets again. That
-means this step is idempotent.
+Running this step repeatedly will not post already posted tweets again.
 
 Alternatively, you can run this step in an interactive mode, which will ask you
 on the command line for a confirmation before posting the tweet.
@@ -471,7 +470,8 @@ Such a cron table will:
 - download fresh feeds, download all pages, and create the tweets every half an hour
 - post one random tweet every hour
 
-You still need to manually review the tweets created by the first cron job to make the second cron job post them:
+Remember that you still need to manually review the tweets created by the first
+cron job to make the second cron job post them:
 
 ``` shell
 $ make review-tweets
@@ -479,8 +479,8 @@ $ make review-tweets
 
 ### Other features
 
-There are some more features such as downloading feeds from the Internet
-Archive. For the list of all available commands, run:
+This program has some more undocumented features such as downloading feeds from
+the Internet Archive. For the list of all available commands, run:
 
 ``` shell
 $ make help
