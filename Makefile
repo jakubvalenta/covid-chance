@@ -59,6 +59,10 @@ post-tweet-interactive:  ## Post one random reviewed tweet (ask before posting)
 print-stats:  ## Print statistics
 	"./$(_executable)" python -m "$(_python_pkg).print_stats" -v --config "$(config_path)"
 
+.PHONY: prepare-print-export
+prepare-print-export:  ## Prepare print export
+	"./$(_executable)" python -m "$(_python_pkg).prepare_print_export" -v --config "$(config_path)"
+
 .PHONY: search-websites
 search-websites:  ## Search for website names using DuckDuckGo
 	jq --nul-output '.feeds[].name' "$(config_path)" | \
