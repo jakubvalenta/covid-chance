@@ -61,7 +61,8 @@ print-stats:  ## Print statistics
 
 .PHONY: prepare-print-export
 prepare-print-export:  ## Prepare print export
-	"./$(_executable)" python -m "$(_python_pkg).prepare_print_export" -v --config "$(config_path)"
+	"./$(_executable)" python -m "$(_python_pkg).prepare_print_export" -v --config "$(config_path)" \
+		--cache "$(cache_path)"
 
 .PHONY: search-websites
 search-websites:  ## Search for website names using DuckDuckGo
