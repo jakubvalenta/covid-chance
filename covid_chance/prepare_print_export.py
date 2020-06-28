@@ -4,9 +4,11 @@ import logging
 import sys
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlsplit
 
 import psycopg2
 import psycopg2.errorcodes
+import requests
 from bs4 import BeautifulSoup
 
 from covid_chance.download_pages import download_page
@@ -26,6 +28,8 @@ def create_table(conn, table: str):
 CREATE TABLE {table} (
   tweet TEXT,
   image_url TEXT,
+  image_path TEXT,
+  approved TIMESTAMP,
   inserted TIMESTAMP DEFAULT NOW()
 );
 '''
@@ -68,6 +72,42 @@ def get_meta_og_image_url(html: str) -> Optional[str]:
     return None
 
 
+def parse_url_extension(url: str) -> str:
+    u = urlsplit(url)
+    return Path(u.path).suffix
+
+
+def download_image(cache_path: Path, url: str, timeout: int = 30) -> Path:
+    if url.startswith('//'):
+        url = 'https:' + url
+    extension = parse_url_extension(url)
+    if not extension:
+        logger.warning('Failed to parse image extension from URL %s', url)
+    path = (
+        Path(cache_path)
+        / safe_filename(simplify_url(url))
+        / ('image' + extension)
+    )
+    if path.is_file():
+        logger.info('Image %s is already downloaded', url)
+        return path
+    logger.info('Downloading %s to %s', url, path)
+    res = requests.get(
+        url,
+        headers={
+            'User-Agent': (
+                'Mozilla/5.0 (X11; Linux x86_64; rv:75.0) '
+                'Gecko/20100101 Firefox/75.0'
+            )
+        },
+        timeout=timeout,
+    )
+    res.raise_for_status()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(res.content)
+    return path
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -84,7 +124,7 @@ def main():
         logging.basicConfig(
             stream=sys.stderr, level=logging.INFO, format='%(message)s'
         )
-    cache_path = Path(args.cache) / 'pages'
+    cache_path = Path(args.cache)
     with open(args.config, 'r') as f:
         config = json.load(f)
 
@@ -101,17 +141,34 @@ def main():
 
     for i, tweet in enumerate(approved_tweets):
         if not db_select(conn, table_print, tweet=tweet.text):
-            html = download_page_html(cache_path, tweet.page_url)
+            html = download_page_html(cache_path / 'pages', tweet.page_url)
             image_url = get_meta_og_image_url(html)
-            if image_url:
+            if image_url and image_url != 'null':
+                try:
+                    image_path = download_image(
+                        cache_path / 'images', image_url
+                    )
+                except Exception as e:
+                    logger.warning(
+                        'Failed to download image %s: %s', image_url, e
+                    )
+                    continue
                 logger.info(
-                    'Saving tweet=%s, image_url=%s', tweet.text, image_url
+                    'Saving tweet=%s, image_url=%s, image_path=%s',
+                    tweet.text,
+                    image_url,
+                    image_path,
                 )
                 db_insert(
-                    conn, table_print, tweet=tweet.text, image_url=image_url
+                    conn,
+                    table_print,
+                    tweet=tweet.text,
+                    image_url=image_url,
+                    image_path=str(image_path),
+                    approved=tweet.inserted,
                 )
             else:
-                logger.warning('Not image found for %s', tweet.page_url)
+                logger.warning('No image found for %s', tweet.page_url)
 
 
 if __name__ == '__main__':
