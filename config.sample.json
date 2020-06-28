@@ -43,5 +43,11 @@
     "profile_name": "Covid-19 is...",
     "profile_description_template": "${n_posted}/${n_total}",
     "tweet_template": "${text} ${url}"
+  },
+  "print_export": {
+    "title": "Covid-19 is...",
+    "author": "Jakub Valenta",
+    "year": "2020",
+    "url": "https://twitter.com/covid_chance"
   }
 }

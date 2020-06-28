@@ -1,0 +1,55 @@
+\documentclass[10pt]{article}
+\usepackage{fontspec}
+\usepackage{polyglossia}
+\usepackage[hang,flushmargin]{footmisc}
+\usepackage{graphicx}
+
+\usepackage[
+    paperheight=147mm,
+    paperwidth=49mm,
+    top=0mm,
+    bottom=1mm,
+    left=0mm,
+    right=2mm,
+]{geometry}
+
+\renewcommand{\footnotesize}{\fontsize{7pt}{9pt}\selectfont}
+
+\begin{document}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{12pt}
+\sffamily
+\footnotesize
+
+~
+
+\clearpage
+
+\textbf{{ '{' }}{{ title }}{{ '}' }}
+
+{{ year }}\\
+{{ author }}\\
+\detokenize{{ '{' }}{{ url }}{{ '}' }}
+
+\clearpage
+
+{% for tweet in tweets -%}
+
+\textbf{{ '{' }}{{ tweet.text }}{{ '}' }}
+
+\begin{figure}[h]
+  \includegraphics[width=\textwidth]{{ '{' }}{{ tweet.image_path }}{{ '}' }}
+\end{figure}
+
+\clearpage
+
+{% endfor -%}
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% TeX-engine: luatex
+%%% End:
