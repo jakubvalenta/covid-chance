@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+import shutil
 import sys
 from pathlib import Path
 from typing import Optional
@@ -10,6 +11,7 @@ import psycopg2
 import psycopg2.errorcodes
 import requests
 from bs4 import BeautifulSoup
+from PIL import Image
 
 from covid_chance.download_pages import download_page
 from covid_chance.post_tweet import read_approved_tweets
@@ -72,40 +74,52 @@ def get_meta_og_image_url(html: str) -> Optional[str]:
     return None
 
 
-def parse_url_extension(url: str) -> str:
+def identify_image_ext(url: str) -> str:
     u = urlsplit(url)
     return Path(u.path).suffix
 
 
-def download_image(cache_path: Path, url: str, timeout: int = 30) -> Path:
+EXTENSIONS = {
+    'JPEG': '.jpg',
+    'GIF': '.gif',
+    'PNG': '.png',
+    'WEBP': '.webp',
+}
+
+
+def download_image(
+    cache_path: Path,
+    url: str,
+    placeholder_str: str = 'placeholder',
+    timeout: int = 10,
+) -> Path:
     if url.startswith('//'):
         url = 'https:' + url
-    extension = parse_url_extension(url)
-    if not extension:
-        logger.warning('Failed to parse image extension from URL %s', url)
-    path = (
-        Path(cache_path)
-        / safe_filename(simplify_url(url))
-        / ('image' + extension)
-    )
+    path = Path(cache_path) / safe_filename(simplify_url(url)) / 'image'
     if path.is_file():
         logger.info('Image %s is already downloaded', url)
-        return path
-    logger.info('Downloading %s to %s', url, path)
-    res = requests.get(
-        url,
-        headers={
-            'User-Agent': (
-                'Mozilla/5.0 (X11; Linux x86_64; rv:75.0) '
-                'Gecko/20100101 Firefox/75.0'
-            )
-        },
-        timeout=timeout,
-    )
-    res.raise_for_status()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(res.content)
-    return path
+    else:
+        logger.info('Downloading %s to %s', url, path)
+        res = requests.get(
+            url,
+            headers={
+                'User-Agent': (
+                    'Mozilla/5.0 (X11; Linux x86_64; rv:75.0) '
+                    'Gecko/20100101 Firefox/75.0'
+                )
+            },
+            timeout=timeout,
+        )
+        res.raise_for_status()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(res.content)
+    with Image.open(path) as im:
+        ext = EXTENSIONS[im.format]
+        path_with_ext = Path(str(path) + ext)
+        if not path_with_ext.exists():
+            logger.info('Copying %s to %s', path, path_with_ext)
+            shutil.copy2(path, path_with_ext)
+    return path_with_ext
 
 
 def main():
