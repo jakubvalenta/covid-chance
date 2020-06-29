@@ -60,15 +60,10 @@ post-tweet-interactive:  ## Post one random reviewed tweet (ask before posting)
 print-stats:  ## Print statistics
 	"./$(_executable)" python -m "$(_python_pkg).print_stats" -v --config "$(config_path)"
 
-.PHONY: prepare-print-export
-prepare-print-export:  ## Prepare print export
-	"./$(_executable)" python -m "$(_python_pkg).prepare_print_export" -v --config "$(config_path)" \
-		--cache "$(cache_path)"
-
-.PHONY: create-print-export
-create-print-export:  ## Create print export
-	"./$(_executable)" python -m "$(_python_pkg).create_print_export" -v --config "$(config_path)" \
-		--output "$(print_export_path)"
+.PHONY: print-export
+print-export:  ## Print export
+	"./$(_executable)" python -m "$(_python_pkg).print_export" -v --config "$(config_path)" \
+		--cache "$(cache_path)" --output "$(print_export_path)"
 
 .PHONY: search-websites
 search-websites:  ## Search for website names using DuckDuckGo

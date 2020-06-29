@@ -9,6 +9,7 @@
     "table_pages": "pages",
     "table_parsed": "parsed",
     "table_posted": "posted",
+    "table_print": "print",
     "table_reviewed": "reviewed",
     "table_urls": "urls"
   },

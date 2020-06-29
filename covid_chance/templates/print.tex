@@ -36,7 +36,11 @@
 
 {% for tweet in tweets -%}
 
-\textbf{{ '{' }}{{ tweet.text }}{{ '}' }}
+\textbf{{ '{' }}{{ tweet.text | replace('%', '\%') | replace('$', '\$') }}{{ '}' }}
+
+\detokenize{{ '{' }}{{ tweet.title | replace('%', '\%') | replace('$', '\$') }}{{ '}' }}
+
+\detokenize{{ '{' }}{{ tweet.description | replace('%', '\%') | replace('$', '\$') }}{{ '}' }}
 
 \begin{figure}[h]
   \includegraphics[width=\textwidth]{{ '{' }}{{ tweet.image_path }}{{ '}' }}
