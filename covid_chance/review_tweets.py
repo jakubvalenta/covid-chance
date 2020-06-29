@@ -1,11 +1,12 @@
 import argparse
+import datetime
 import json
 import logging
 import readline
 import sys
 from dataclasses import dataclass
 from textwrap import fill
-from typing import Iterator, Optional
+from typing import Any, Dict, Iterator, Optional
 
 import colored
 import psycopg2
@@ -29,7 +30,7 @@ class Tweet:
     parsed: str
     status: str
     edited: str
-    inserted: Optional[str]
+    inserted: Optional[datetime.datetime]
 
     @property
     def text(self) -> str:
@@ -100,7 +101,7 @@ def write_reviewed_tweet(conn, table: str, tweet: Tweet):
         'line': tweet.line,
         'parsed': tweet.parsed,
     }
-    values = {
+    values: Dict[str, Any] = {
         'status': tweet.status,
         'edited': tweet.edited,
     }

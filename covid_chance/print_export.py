@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import IO, Optional, Sequence, Tuple
 from urllib.parse import urlsplit
 
+import regex
 import requests
 from bs4 import BeautifulSoup
 from jinja2 import Environment, PackageLoader
@@ -37,7 +38,8 @@ class ExportedTweet:
     title: str
     description: str
     image_path: str
-    approved: Optional[str]
+    domain: str
+    approved: str
 
 
 def download_page_html(cache_path: str, page_url: str) -> Optional[str]:
@@ -147,12 +149,19 @@ def print_export_tweet(
             'Failed to download image %s: %s', page_meta.image_url, e
         )
         return None
+    domain = urlsplit(tweet.page_url).netloc
+    domain = regex.sub(r'^www\.', '', domain)
+    if tweet.inserted:
+        approved = tweet.inserted.strftime('%B %d')
+    else:
+        approved = ''
     return ExportedTweet(
         text=tweet.text,
         title=page_meta.title,
         description=page_meta.description,
         image_path=str(image_path),
-        approved=tweet.inserted,
+        domain=domain,
+        approved=approved,
     )
 
 
@@ -203,13 +212,12 @@ def main():
 
     with output_path.open('w') as f:
         render_template(
-            ['covid_chance', 'templates', 'print.tex'],
+            ['covid_chance', 'templates', 'print.html'],
             f,
             tweets=[x for x in exported_tweets if x],
-            title=config['print_export']['title'],
-            author=config['print_export']['author'],
-            year=config['print_export']['year'],
-            url=config['print_export']['url'],
+            name=config['print_export']['name'],
+            handle=config['print_export']['handle'],
+            profile_picture=config['print_export']['profile_picture'],
         )
 
 

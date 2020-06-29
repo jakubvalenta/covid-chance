@@ -46,9 +46,8 @@
     "tweet_template": "${text} ${url}"
   },
   "print_export": {
-    "title": "Covid-19 is...",
-    "author": "Jakub Valenta",
-    "year": "2020",
-    "url": "https://twitter.com/covid_chance"
+    "name": "Covid-19 is...",
+    "handle": "@covid_chance",
+    "profile_picture": "https://pbs.twimg.com/profile_images/1277202814909939712/h3mL0gYb_bigger.jpg"
   }
 }
