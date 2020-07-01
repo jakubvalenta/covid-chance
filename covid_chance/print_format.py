@@ -26,7 +26,7 @@ def main():
         '-c', '--config', help='Configuration file path', required=True
     )
     parser.add_argument(
-        '-o', '--output', help='Output TeX file path', required=True
+        '-o', '--output', help='Output directory', required=True
     )
     parser.add_argument(
         '-v', '--verbose', action='store_true', help='Enable debugging output'
@@ -38,7 +38,7 @@ def main():
         )
     with open(args.config, 'r') as f:
         config = json.load(f)
-    output_path = Path(args.output)
+    output_dir = Path(args.output)
 
     conn = db_connect(
         database=config['db']['database'],
@@ -48,16 +48,22 @@ def main():
     table_exported = config['db']['table_print_export']
 
     exported_tweets = list(read_exported_tweets(conn, table_exported))
+    tweets_per_page = config['print_export']['tweets_per_page']
 
-    with output_path.open('w') as f:
-        render_template(
-            ['covid_chance', 'templates', 'print.html'],
-            f,
-            tweets=[x for x in exported_tweets if x],
-            name=config['print_export']['name'],
-            handle=config['print_export']['handle'],
-            profile_picture=config['print_export']['profile_picture'],
-        )
+    for i in range(len(exported_tweets) // tweets_per_page + 1):
+        output_path = output_dir / f'covid_chance-{i:02}.html'
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        start = i * tweets_per_page
+        end = start + tweets_per_page
+        with output_path.open('w') as f:
+            render_template(
+                ['covid_chance', 'templates', 'print.html'],
+                f,
+                tweets=exported_tweets[start:end],
+                name=config['print_export']['name'],
+                handle=config['print_export']['handle'],
+                profile_picture=config['print_export']['profile_picture'],
+            )
 
 
 if __name__ == '__main__':
