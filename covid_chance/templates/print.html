@@ -19,11 +19,11 @@
       .card {
         display: flex;
         width: 572px;
-        height: 382px;
+        height: 410px;
         font-family: 'Cantarell', sans-serif;
         font-size: 15px;
         line-height: 20px;
-        color: rgb(20, 23, 26);
+        /* color: rgb(20, 23, 26); */
       }
       .card__left {
         flex-shrink: 0;
@@ -46,31 +46,33 @@
         padding-right: 5px;
       }
       .tweet__handle {
-        color: rgb(101, 119, 134);
+        /* color: rgb(101, 119, 134); */
       }
       .tweet__sep {
-        color: rgb(101, 119, 134);
+        /* color: rgb(101, 119, 134); */
         padding-left: 5px;
         padding-right: 5px;
       }
       .tweet__time {
-        color: rgb(101, 119, 134);
+        /* color: rgb(101, 119, 134); */
       }
       .tweet__hashtag {
-        color: rgb(101, 119, 134);
+        /* color: rgb(101, 119, 134); */
       }
       .link {
         display: flex;
         flex-direction: column;
         flex-grow: 1;
         margin-top: 10px;
-        border: 1px solid rgb(204, 214, 221);
+        /* border: 1px solid rgb(204, 214, 221); */
+        border: 1px solid black;
         border-radius: 14px;
         overflow: hidden;
       }
       .link__img-container {
         position: relative;
-        border-bottom: 1px solid rgb(204, 214, 221);
+        /* border-bottom: 1px solid rgb(204, 214, 221); */
+        border: 1px solid black;
         /* padding-bottom: 52%; */
         flex-grow: 1;
       }
@@ -85,12 +87,12 @@
         display: none;
       }
       .link__description {
-        color: rgb(101, 119, 134);
+        /* color: rgb(101, 119, 134); */
         margin-bottom: 2px;
         display: none;
       }
       .link__domain {
-        color: rgb(101, 119, 134);
+        /* color: rgb(101, 119, 134); */
       }
       .link__domain__icon {
         font-size: 13px;
@@ -98,7 +100,7 @@
       .link__domain svg {
         margin-right: 2px;
         vertical-align: text-bottom;
-        fill: rgb(101, 119, 134);
+        /* fill: rgb(101, 119, 134); */
       }
     </style>
   </head>
@@ -112,7 +114,7 @@
             <strong class="tweet__name">{{ name }}</strong>
             <span class="tweet__handle">{{ handle }}</span>
             <span class="tweet__sep">·</span>
-            <span class="tweet__time">{{ tweet.approved }}</span>
+            <span class="tweet__time">{{ tweet.approved_str }}</span>
           </div>
           <div>
             {{ tweet.text }}

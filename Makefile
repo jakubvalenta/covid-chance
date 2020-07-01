@@ -4,7 +4,7 @@ _executable := covid-chance
 cache_path ?= $(HOME)/.cache/covid-chance
 config_path ?= $(HOME)/.config/covid-chance/config.json
 secrets_path ?= $(HOME)/.config/covid-chance/secrets.json
-print_export_path ?= covid_chance.tex
+print_export_path ?= covid_chance.html
 
 .PHONY: download-feeds
 download-feeds:  ## Download current feeds
@@ -63,7 +63,12 @@ print-stats:  ## Print statistics
 .PHONY: print-export
 print-export:  ## Print export
 	"./$(_executable)" python -m "$(_python_pkg).print_export" -v --config "$(config_path)" \
-		--cache "$(cache_path)" --output "$(print_export_path)"
+		--cache "$(cache_path)"
+
+.PHONY: print-format
+print-format:  ## Print format
+	"./$(_executable)" python -m "$(_python_pkg).print_format" -v --config "$(config_path)" \
+		--output "$(print_export_path)"
 
 .PHONY: search-websites
 search-websites:  ## Search for website names using DuckDuckGo
