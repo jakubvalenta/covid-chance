@@ -6,30 +6,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{ title }}</title>
     <style>
+      html {
+        height: 100%;
+      }
       body {
+        height: 100%;
         margin: 0;
       }
       .row {
         display: flex;
+        height: 100%;
       }
       .row .card {
-        margin: 0 10px;
+        margin: 0 1em;
         flex-shrink: 0;
       }
       .card {
         display: flex;
-        width: 572px;
-        height: 410px;
+        width: 28em;
         font-family: 'Cantarell', sans-serif;
-        font-size: 15px;
-        line-height: 20px;
-        /* color: rgb(20, 23, 26); */
+        font-size: 180%;
+        line-height: 1.2;
       }
       .card__left {
         flex-shrink: 0;
-        width: 49px;
-        margin-right: 10px;
-        height: 49px;
+        width: 2.5em;
+        margin-right: 0.5em;
+        height: 2.5em;
         background-image: url('{{ profile_picture }}');
         background-size: contain;
       }
@@ -39,41 +42,38 @@
         flex-grow: 1;
       }
       .tweet {
-        margin-bottom: 2px;
+        margin-bottom: 0.2em;
         display: flex;
       }
       .tweet__name {
-        padding-right: 5px;
+        padding-right: 0.2em;
       }
       .tweet__handle {
-        /* color: rgb(101, 119, 134); */
+        display: none;
       }
       .tweet__sep {
-        /* color: rgb(101, 119, 134); */
-        padding-left: 5px;
-        padding-right: 5px;
+        padding-left: 0.5em;
+        padding-right: 0.5em;
+        display: none;
       }
       .tweet__time {
-        /* color: rgb(101, 119, 134); */
+        display: none;
       }
       .tweet__hashtag {
-        /* color: rgb(101, 119, 134); */
+        display: none;
       }
       .link {
         display: flex;
         flex-direction: column;
         flex-grow: 1;
-        margin-top: 10px;
-        /* border: 1px solid rgb(204, 214, 221); */
-        border: 1px solid black;
-        border-radius: 14px;
+        margin-top: 0.6em;
+        border: 1px solid #bbb;
+        border-radius: 0.75em;
         overflow: hidden;
       }
       .link__img-container {
         position: relative;
-        /* border-bottom: 1px solid rgb(204, 214, 221); */
-        border: 1px solid black;
-        /* padding-bottom: 52%; */
+        border: 1px solid #bbb;
         flex-grow: 1;
       }
       .link__img {
@@ -83,24 +83,19 @@
         background-size: cover;
       }
       .link__title {
-        margin-bottom: 2px;
+        margin-bottom: 0.2em;
         display: none;
       }
       .link__description {
-        /* color: rgb(101, 119, 134); */
-        margin-bottom: 2px;
+        margin-bottom: 0.2em;
         display: none;
       }
-      .link__domain {
-        /* color: rgb(101, 119, 134); */
-      }
       .link__domain__icon {
-        font-size: 13px;
+        font-size: 30%;
       }
       .link__domain svg {
-        margin-right: 2px;
+        margin-right: 0.5em;
         vertical-align: text-bottom;
-        /* fill: rgb(101, 119, 134); */
       }
     </style>
   </head>
@@ -132,7 +127,7 @@
               <div class="link__description">{{ tweet.description }}</div>
               <div class="link__domain">
                 <span class="link__domain__icon">
-                  <svg width="16" height="16" viewBox="0 0 24 24">
+                  <svg width="24" height="24" viewBox="0 0 24 24">
                     <g>
                       <path
                         d="M11.96 14.945c-.067 0-.136-.01-.203-.027-1.13-.318-2.097-.986-2.795-1.932-.832-1.125-1.176-2.508-.968-3.893s.942-2.605 2.068-3.438l3.53-2.608c2.322-1.716 5.61-1.224 7.33 1.1.83 1.127 1.175 2.51.967 3.895s-.943 2.605-2.07 3.438l-1.48 1.094c-.333.246-.804.175-1.05-.158-.246-.334-.176-.804.158-1.05l1.48-1.095c.803-.592 1.327-1.463 1.476-2.45.148-.988-.098-1.975-.69-2.778-1.225-1.656-3.572-2.01-5.23-.784l-3.53 2.608c-.802.593-1.326 1.464-1.475 2.45-.15.99.097 1.975.69 2.778.498.675 1.187 1.15 1.992 1.377.4.114.633.528.52.928-.092.33-.394.547-.722.547z"
