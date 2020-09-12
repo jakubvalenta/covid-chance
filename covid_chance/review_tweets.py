@@ -237,7 +237,9 @@ def main():
     logger.info('Number of rejected tweets:  %d', len(rejected_tweets))
     logger.info('Number of tweets to review: %d', total_pending_tweets)
 
-    for i, tweet in enumerate(pending_tweets):
+    i = 0
+    while i < len(pending_tweets):
+        tweet = pending_tweets[i]
         print_tweet(
             tweet,
             i=i + 1,
@@ -246,19 +248,23 @@ def main():
             highlight=True,
         )
         inp = None
-        while inp is None or (inp not in ('y', 'n', 'e', 'q', 's', '')):
+        while inp is None or (inp not in ('y', 'n', 'e', 'q', 's', 'p', '')):
             inp = rlinput(
                 'Do you like this tweet? '
                 '"y" or Enter = yes, '
                 '"n" = no, '
                 '"e" = edit, '
                 '"s" = skip (ask next time again), '
+                '"p" = show previous tweet, '
                 '"q" = quit \n'
                 '> '
             )
         if inp == 'q':
             break
         if inp == 's':
+            continue
+        if inp == 'p':
+            i = max(i - 1, 0)
             continue
         if inp in ('y' or ''):
             tweet.status = REVIEW_STATUS_APPROVED
@@ -279,6 +285,7 @@ def main():
         else:
             raise NotImplementedError('Invalid input')
         write_reviewed_tweet(conn, table_reviewed, tweet)
+        i = i + 1
 
 
 if __name__ == '__main__':
