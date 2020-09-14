@@ -262,6 +262,7 @@ def main():
         if inp == 'q':
             break
         if inp == 's':
+            i = i + 1
             continue
         if inp == 'p':
             i = max(i - 1, 0)
