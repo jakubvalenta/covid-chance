@@ -92,7 +92,7 @@ test:  ## Run unit tests
 lint:  ## Run linting
 	pipenv run flake8 $(_python_pkg)
 	pipenv run mypy $(_python_pkg) --ignore-missing-imports
-	pipenv run isort -c -rc $(_python_pkg)
+	pipenv run isort -c $(_python_pkg)
 
 .PHONY: tox
 tox:  ## Test with tox
