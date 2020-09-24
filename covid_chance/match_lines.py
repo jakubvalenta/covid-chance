@@ -38,11 +38,11 @@ CREATE INDEX index_{table}_param_hash ON {table} (param_hash);
     cur.close()
 
 
-def get_pages(conn, table: str) -> Iterator[tuple]:
-    cur = conn.cursor()
-    cur.execute(f'SELECT url, text FROM {table};')
-    yield from cur
-    cur.close()
+def get_pages(conn, table: str, itersize: int = 10_000) -> Iterator[tuple]:
+    with conn.cursor('select-pages') as cur:
+        cur.itersize = itersize
+        cur.execute(f'SELECT url, text FROM {table};')
+        yield from cur
 
 
 def contains_any_keyword(s: str, keyword_list: Sequence[str]) -> bool:

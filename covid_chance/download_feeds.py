@@ -112,26 +112,26 @@ def download_feeds(
         user=db['user'],
         password=db['password'],
     )
-    create_table(conn, table)
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(
-                download_and_save_feed,
-                conn,
-                table=table,
-                feed_name=feed['name'],
-                feed_url=feed['url'],
-                timeout=timeout,
-            )
-            for feed in feeds
-            if feed.get('name') and feed.get('url')
-        ]
-        for future in concurrent.futures.as_completed(futures):
-            try:
-                future.result()
-            except Exception as e:
-                logger.error('Exception: %s', e)
-    conn.commit()
+    with conn:
+        create_table(conn, table)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [
+                executor.submit(
+                    download_and_save_feed,
+                    conn,
+                    table=table,
+                    feed_name=feed['name'],
+                    feed_url=feed['url'],
+                    timeout=timeout,
+                )
+                for feed in feeds
+                if feed.get('name') and feed.get('url')
+            ]
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    logger.error('Exception: %s', e)
     conn.close()
 
 
