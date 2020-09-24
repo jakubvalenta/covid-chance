@@ -19,10 +19,10 @@ logger = logging.getLogger(__name__)
 
 
 def create_table(conn, table: str):
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            f'''
+    with conn.cursor() as cur:
+        try:
+            cur.execute(
+                f'''
 CREATE TABLE {table} (
   url text PRIMARY KEY,
   feed_name text,
@@ -30,14 +30,13 @@ CREATE TABLE {table} (
 );
 CREATE INDEX index_{table}_url ON {table} (url);
 '''
-        )
-    except psycopg2.ProgrammingError as e:
-        if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
-            pass
-        else:
-            raise
-    conn.commit()
-    cur.close()
+            )
+        except psycopg2.ProgrammingError as e:
+            if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
+                pass
+            else:
+                raise
+        conn.commit()
 
 
 def download_feed(url: str, timeout: int = 10) -> List[str]:
@@ -66,28 +65,29 @@ def save_page_urls(
     page_urls: List[str],
     mtime: datetime.datetime,
 ):
-    cur = conn.cursor()
-    missing_page_urls = [
-        page_url
-        for page_url in set(page_urls)
-        if not db_select(conn, table, cur=cur, url=page_url)
-    ]
-    for page_url in missing_page_urls:
-        try:
-            db_insert(
-                conn,
-                table,
-                cur=cur,
-                url=page_url,
-                feed_name=feed_name,
-                inserted=mtime,
-            )
-        except Exception as e:
-            logger.error(
-                'Error while inserting new URL in the db %s %s', page_url, e
-            )
-    conn.commit()
-    cur.close()
+    with conn.cursor() as cur:
+        missing_page_urls = [
+            page_url
+            for page_url in set(page_urls)
+            if not db_select(conn, table, cur=cur, url=page_url)
+        ]
+        for page_url in missing_page_urls:
+            try:
+                db_insert(
+                    conn,
+                    table,
+                    cur=cur,
+                    url=page_url,
+                    feed_name=feed_name,
+                    inserted=mtime,
+                )
+            except Exception as e:
+                logger.error(
+                    'Error while inserting new URL in the db %s %s',
+                    page_url,
+                    e,
+                )
+        conn.commit()
     logger.info(
         'done %s %d urls inserted',
         feed_name.ljust(40),

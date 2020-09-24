@@ -49,10 +49,10 @@ class ExportedTweet:
 
 
 def create_table(conn, table: str):
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            f'''
+    with conn.cursor() as cur:
+        try:
+            cur.execute(
+                f'''
 CREATE TABLE {table} (
   text text,
   title text,
@@ -63,32 +63,30 @@ CREATE TABLE {table} (
   inserted timestamp DEFAULT NOW()
 );
 '''
-        )
-    except psycopg2.ProgrammingError as e:
-        if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
-            pass
-        else:
-            raise
-    conn.commit()
-    cur.close()
+            )
+        except psycopg2.ProgrammingError as e:
+            if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
+                pass
+            else:
+                raise
+        conn.commit()
 
 
 def read_exported_tweets(conn, table: str) -> Iterator[ExportedTweet]:
-    cur = conn.cursor()
-    cur.execute(
-        'SELECT text, title, description, image_path, domain, approved '
-        f"FROM {table};"
-    )
-    for text, title, description, image_path, domain, approved in cur:
-        yield ExportedTweet(
-            text=text,
-            title=title,
-            description=description,
-            image_path=image_path,
-            domain=domain,
-            approved=approved,
+    with conn.cursor() as cur:
+        cur.execute(
+            'SELECT text, title, description, image_path, domain, approved '
+            f"FROM {table};"
         )
-    cur.close()
+        for text, title, description, image_path, domain, approved in cur:
+            yield ExportedTweet(
+                text=text,
+                title=title,
+                description=description,
+                image_path=image_path,
+                domain=domain,
+                approved=approved,
+            )
 
 
 def download_page_html(cache_path: str, page_url: str) -> Optional[str]:
@@ -239,25 +237,26 @@ def main():
         user=config['db']['user'],
         password=config['db']['password'],
     )
-    table_reviewed = config['db']['table_reviewed']
-    table_exported = config['db']['table_print_export']
-    create_table(conn, table_exported)
+    with conn:
+        table_reviewed = config['db']['table_reviewed']
+        table_exported = config['db']['table_print_export']
+        create_table(conn, table_exported)
 
-    approved_tweets = list(read_approved_tweets(conn, table_reviewed))
+        approved_tweets = list(read_approved_tweets(conn, table_reviewed))
 
-    for i, tweet in enumerate(approved_tweets):
-        exported_tweet = print_export_tweet(cache_path, tweet)
-        if exported_tweet:
-            db_insert(
-                conn,
-                table_exported,
-                text=exported_tweet.text,
-                title=exported_tweet.title,
-                description=exported_tweet.description,
-                image_path=exported_tweet.image_path,
-                domain=exported_tweet.domain,
-                approved=exported_tweet.approved,
-            )
+        for i, tweet in enumerate(approved_tweets):
+            exported_tweet = print_export_tweet(cache_path, tweet)
+            if exported_tweet:
+                db_insert(
+                    conn,
+                    table_exported,
+                    text=exported_tweet.text,
+                    title=exported_tweet.title,
+                    description=exported_tweet.description,
+                    image_path=exported_tweet.image_path,
+                    domain=exported_tweet.domain,
+                    approved=exported_tweet.approved,
+                )
 
 
 if __name__ == '__main__':

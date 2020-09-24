@@ -84,20 +84,24 @@ def download_feed_archives(
         user=db['user'],
         password=db['password'],
     )
-    create_table(conn, table)
-    for feed in feeds:
-        if feed.get('name') and feed.get('url'):
-            for date in dates:
-                if not db_select(conn, table, feed_url=feed['url'], date=date):
-                    archived_url = find_closest_snapshot_url(feed['url'], date)
-                    db_insert(
-                        conn,
-                        table,
-                        feed_url=feed['url'],
-                        archived_url=archived_url,
-                        date=date,
-                    )
-    conn.commit()
+    with conn:
+        create_table(conn, table)
+        for feed in feeds:
+            if feed.get('name') and feed.get('url'):
+                for date in dates:
+                    if not db_select(
+                        conn, table, feed_url=feed['url'], date=date
+                    ):
+                        archived_url = find_closest_snapshot_url(
+                            feed['url'], date
+                        )
+                        db_insert(
+                            conn,
+                            table,
+                            feed_url=feed['url'],
+                            archived_url=archived_url,
+                            date=date,
+                        )
     conn.close()
 
 

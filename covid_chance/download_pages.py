@@ -29,10 +29,10 @@ logger = logging.getLogger(__name__)
 
 
 def create_table(conn, table: str):
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            f'''
+    with conn.cursor() as cur:
+        try:
+            cur.execute(
+                f'''
 CREATE TABLE {table} (
   url text UNIQUE,
   text text,
@@ -40,14 +40,13 @@ CREATE TABLE {table} (
 );
 CREATE INDEX index_{table}_url ON {table} (url);
 '''
-        )
-    except psycopg2.ProgrammingError as e:
-        if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
-            pass
-        else:
-            raise
-    conn.commit()
-    cur.close()
+            )
+        except psycopg2.ProgrammingError as e:
+            if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
+                pass
+            else:
+                raise
+        conn.commit()
 
 
 def download_page(
@@ -178,7 +177,9 @@ def download_page_text(
         return path.read_text()
     try:
         html = download_page(
-            page_url, wait_interval=wait_interval, timeout=timeout,
+            page_url,
+            wait_interval=wait_interval,
+            timeout=timeout,
         )
     except Exception as e:
         logger.error('Failed to download %s: %s', page_url, e)
@@ -249,41 +250,45 @@ def download_pages(
         user=db['user'],
         password=db['password'],
     )
-    create_table(conn, table_pages)
-    logger.info(
-        'Selecting pages to download since %s',
-        since or 'the beginning of time',
-    )
-    page_urls_by_feeds = select_page_urls_to_download(
-        conn, table_urls, table_pages, since
-    )
-    print_stats(page_urls_by_feeds)
-
-    page_urls_with_feed_names = {}
-    for feed_name, page_urls in page_urls_by_feeds.items():
-        for page_url in page_urls:
-            if page_url not in page_urls_with_feed_names:
-                page_urls_with_feed_names[page_url] = feed_name
-    total = len(page_urls_with_feed_names)
-    logger.info('Pages to download: %d', total)
-    if dry_run:
-        logger.warning('This is just a dry run, not downloading any pages')
-        return
-
-    page_urls_with_feed_names_list = list(page_urls_with_feed_names.items())
-    random.shuffle(page_urls_with_feed_names_list)
-    for i, (page_url, feed_name) in enumerate(page_urls_with_feed_names_list):
-        logger.info('%d/%d Downloading %s', i + 1, total, page_url)
-        text = download_page_text(
-            cache_path=cache_path,
-            feed_name=feed_name,
-            page_url=page_url,
-            wait_interval=wait_interval,
-            timeout=timeout,
+    with conn:
+        create_table(conn, table_pages)
+        logger.info(
+            'Selecting pages to download since %s',
+            since or 'the beginning of time',
         )
-        if text is not None:
-            db_insert(conn, table_pages, url=page_url, text=text)
-    conn.commit()
+        page_urls_by_feeds = select_page_urls_to_download(
+            conn, table_urls, table_pages, since
+        )
+        print_stats(page_urls_by_feeds)
+
+        page_urls_with_feed_names = {}
+        for feed_name, page_urls in page_urls_by_feeds.items():
+            for page_url in page_urls:
+                if page_url not in page_urls_with_feed_names:
+                    page_urls_with_feed_names[page_url] = feed_name
+        total = len(page_urls_with_feed_names)
+        logger.info('Pages to download: %d', total)
+        if dry_run:
+            logger.warning('This is just a dry run, not downloading any pages')
+            return
+
+        page_urls_with_feed_names_list = list(
+            page_urls_with_feed_names.items()
+        )
+        random.shuffle(page_urls_with_feed_names_list)
+        for i, (page_url, feed_name) in enumerate(
+            page_urls_with_feed_names_list
+        ):
+            logger.info('%d/%d Downloading %s', i + 1, total, page_url)
+            text = download_page_text(
+                cache_path=cache_path,
+                feed_name=feed_name,
+                page_url=page_url,
+                wait_interval=wait_interval,
+                timeout=timeout,
+            )
+            if text is not None:
+                db_insert(conn, table_pages, url=page_url, text=text)
     conn.close()
 
 

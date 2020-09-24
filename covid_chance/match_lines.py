@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 def create_table(conn, table: str):
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            f'''
+    with conn.cursor() as cur:
+        try:
+            cur.execute(
+                f'''
 CREATE TABLE {table} (
   url text,
   line text,
@@ -28,14 +28,13 @@ CREATE TABLE {table} (
 CREATE INDEX index_{table}_url ON {table} (url);
 CREATE INDEX index_{table}_param_hash ON {table} (param_hash);
 '''
-        )
-    except psycopg2.ProgrammingError as e:
-        if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
-            pass
-        else:
-            raise
-    conn.commit()
-    cur.close()
+            )
+        except psycopg2.ProgrammingError as e:
+            if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
+                pass
+            else:
+                raise
+        conn.commit()
 
 
 def get_pages(conn, table: str, itersize: int = 10_000) -> Iterator[tuple]:
@@ -74,25 +73,36 @@ def match_page_lines(
     if db_select(conn, table, url=page_url, param_hash=param_hash):
         return
     logger.info('%d Matched %s', i, page_url)
-    cur = conn.cursor()
-    inserted = False
-    for line in page_text.splitlines():
-        if contains_keyword_from_each_list(line, keyword_lists):
+    with conn.cursor() as cur:
+        inserted = False
+        for line in page_text.splitlines():
+            if contains_keyword_from_each_list(line, keyword_lists):
+                db_insert(
+                    conn,
+                    table,
+                    cur=cur,
+                    url=page_url,
+                    line=line.strip(),
+                    param_hash=param_hash,
+                )
+                inserted = True
+        if not inserted:
             db_insert(
                 conn,
                 table,
                 cur=cur,
                 url=page_url,
-                line=line.strip(),
+                line='',
                 param_hash=param_hash,
             )
-            inserted = True
-    if not inserted:
-        db_insert(
-            conn, table, cur=cur, url=page_url, line='', param_hash=param_hash,
-        )
-    conn.commit()
-    cur.close()
+        conn.commit()
+
+
+def log_future_exception(future: concurrent.futures.Future):
+    try:
+        future.result()
+    except Exception as e:
+        logger.error('Exception: %s', e)
 
 
 def match_lines(
@@ -107,29 +117,24 @@ def match_lines(
         user=db['user'],
         password=db['password'],
     )
-    param_hash = hashobj(keyword_lists)
-    create_table(conn, table_lines)
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(
-                match_page_lines,
-                conn,
-                table_lines,
-                i,
-                page_url,
-                page_text,
-                keyword_lists,
-                param_hash,
-            )
+    with conn:
+        param_hash = hashobj(keyword_lists)
+        create_table(conn, table_lines)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
             for i, (page_url, page_text) in enumerate(
                 get_pages(conn, table_pages)
-            )
-        ]
-        for future in concurrent.futures.as_completed(futures):
-            try:
-                future.result()
-            except Exception as e:
-                logger.error('Exception: %s', e)
+            ):
+                future = executor.submit(
+                    match_page_lines,
+                    conn,
+                    table_lines,
+                    i,
+                    page_url,
+                    page_text,
+                    keyword_lists,
+                    param_hash,
+                )
+                future.add_done_callback(log_future_exception)
     conn.close()
 
 

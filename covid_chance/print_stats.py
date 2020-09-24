@@ -31,7 +31,10 @@ def calc_feed_stats(
         cur.execute(
             f'SELECT COUNT(*) FROM {table_lines} '
             'WHERE line != %s AND url IN %s;',
-            ('', page_urls,),
+            (
+                '',
+                page_urls,
+            ),
         )
         n_lines = int(cur.fetchone()[0])
     else:
@@ -72,39 +75,38 @@ def print_stats(
     feeds: List[Dict[str, str]],
 ):
     conn = db_connect(
-        database=db['database'], user=db['user'], password=db['password'],
+        database=db['database'],
+        user=db['user'],
+        password=db['password'],
     )
-
-    cur = conn.cursor()
-    try:
-        writer = csv.DictWriter(
-            sys.stdout,
-            fieldnames=(
-                'feed_name',
-                'n_pages',
-                'n_lines',
-                'n_parsed',
-                'n_approved',
-            ),
-            quoting=csv.QUOTE_NONNUMERIC,
-            lineterminator='\n',
-        )
-        writer.writeheader()
-        for feed in feeds:
-            if feed['name']:
-                feed_stats = calc_feed_stats(
-                    cur,
-                    feed['name'],
-                    table_urls,
-                    table_pages,
-                    table_lines,
-                    table_parsed,
-                    table_reviewed,
-                )
-                writer.writerow(feed_stats)
-    finally:
-        cur.close()
-        conn.close()
+    with conn:
+        with conn.cursor() as cur:
+            writer = csv.DictWriter(
+                sys.stdout,
+                fieldnames=(
+                    'feed_name',
+                    'n_pages',
+                    'n_lines',
+                    'n_parsed',
+                    'n_approved',
+                ),
+                quoting=csv.QUOTE_NONNUMERIC,
+                lineterminator='\n',
+            )
+            writer.writeheader()
+            for feed in feeds:
+                if feed['name']:
+                    feed_stats = calc_feed_stats(
+                        cur,
+                        feed['name'],
+                        table_urls,
+                        table_pages,
+                        table_lines,
+                        table_parsed,
+                        table_reviewed,
+                    )
+                    writer.writerow(feed_stats)
+    conn.close()
 
 
 def main():

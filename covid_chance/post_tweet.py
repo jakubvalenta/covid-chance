@@ -18,10 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 def create_table(conn, table: str):
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            f'''
+    with conn.cursor() as cur:
+        try:
+            cur.execute(
+                f'''
 CREATE TABLE {table} (
   url TEXT,
   line TEXT,
@@ -32,51 +32,49 @@ CREATE TABLE {table} (
   inserted TIMESTAMP DEFAULT NOW()
 );
 '''
-        )
-    except psycopg2.ProgrammingError as e:
-        if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
-            pass
-        else:
-            raise
-    conn.commit()
-    cur.close()
+            )
+        except psycopg2.ProgrammingError as e:
+            if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
+                pass
+            else:
+                raise
+        conn.commit()
 
 
 def read_approved_tweets(conn, table: str) -> Iterator[Tweet]:
-    cur = conn.cursor()
-    cur.execute(
-        f"SELECT url, line, parsed, status, edited, inserted FROM {table} "
-        "WHERE status = %s",
-        (REVIEW_STATUS_APPROVED,),
-    )
-    for url, line, parsed, status, edited, inserted in cur:
-        yield Tweet(
-            page_url=url,
-            line=line,
-            parsed=parsed,
-            status=status,
-            edited=edited,
-            inserted=inserted,
+    with conn.cursor() as cur:
+        cur.execute(
+            f"SELECT url, line, parsed, status, edited, inserted FROM {table} "
+            "WHERE status = %s",
+            (REVIEW_STATUS_APPROVED,),
         )
-    cur.close()
+        for url, line, parsed, status, edited, inserted in cur:
+            yield Tweet(
+                page_url=url,
+                line=line,
+                parsed=parsed,
+                status=status,
+                edited=edited,
+                inserted=inserted,
+            )
 
 
 def read_posted_tweets(conn, table: str) -> Iterator[Tweet]:
-    cur = conn.cursor()
-    cur.execute(
-        f"SELECT url, line, parsed, status, edited, inserted FROM {table};",
-        (REVIEW_STATUS_APPROVED,),
-    )
-    for url, line, parsed, status, edited, inserted in cur:
-        yield Tweet(
-            page_url=url,
-            line=line,
-            parsed=parsed,
-            status=status,
-            edited=edited,
-            inserted=inserted,
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT url, line, parsed, status, edited, inserted "
+            f"FROM {table};",
+            (REVIEW_STATUS_APPROVED,),
         )
-    cur.close()
+        for url, line, parsed, status, edited, inserted in cur:
+            yield Tweet(
+                page_url=url,
+                line=line,
+                parsed=parsed,
+                status=status,
+                edited=edited,
+                inserted=inserted,
+            )
 
 
 def update_profile(
@@ -208,7 +206,9 @@ def main():
             tweet=text,
         )
     logger.warning(
-        'Updating profile, name: "%s", description: "%s"', name, description,
+        'Updating profile, name: "%s", description: "%s"',
+        name,
+        description,
     )
     update_profile(name, description, secrets, args.dry_run)
 

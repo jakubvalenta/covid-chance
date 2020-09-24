@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
 
 
 def create_table(conn, table: str):
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            f'''
+    with conn.cursor() as cur:
+        try:
+            cur.execute(
+                f'''
 CREATE TABLE {table} (
   url text,
   line text,
@@ -30,14 +30,13 @@ CREATE TABLE {table} (
 CREATE INDEX index_{table}_parsed ON {table} (parsed);
 CREATE INDEX index_{table}_param_hash ON {table} (param_hash);
 '''
-        )
-    except psycopg2.ProgrammingError as e:
-        if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
-            pass
-        else:
-            raise
-    conn.commit()
-    cur.close()
+            )
+        except psycopg2.ProgrammingError as e:
+            if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
+                pass
+            else:
+                raise
+        conn.commit()
 
 
 def searchall(rx: regex.Regex, s: str) -> Iterator:
@@ -57,10 +56,9 @@ def parse_line(rx, line: str) -> Iterator[Tuple[str, str]]:
 
 
 def get_lines(conn, table: str) -> Iterator[tuple]:
-    cur = conn.cursor()
-    cur.execute(f"SELECT url, line FROM {table} WHERE line != '';")
-    yield from cur
-    cur.close()
+    with conn.cursor() as cur:
+        cur.execute(f"SELECT url, line FROM {table} WHERE line != '';")
+        yield from cur
 
 
 def parse_lines_one(
@@ -88,27 +86,30 @@ def parse_lines(db: dict, pattern: str, table_lines: str, table_parsed: str):
         user=db['user'],
         password=db['password'],
     )
-    rx = regex.compile(pattern)
-    create_table(conn, table_parsed)
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(
-                parse_lines_one,
-                conn,
-                table_parsed,
-                i,
-                page_url,
-                line,
-                pattern,
-                rx,
-            )
-            for i, (page_url, line) in enumerate(get_lines(conn, table_lines))
-        ]
-        for future in concurrent.futures.as_completed(futures):
-            try:
-                future.result()
-            except Exception as e:
-                logger.error('Exception: %s', e)
+    with conn:
+        rx = regex.compile(pattern)
+        create_table(conn, table_parsed)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [
+                executor.submit(
+                    parse_lines_one,
+                    conn,
+                    table_parsed,
+                    i,
+                    page_url,
+                    line,
+                    pattern,
+                    rx,
+                )
+                for i, (page_url, line) in enumerate(
+                    get_lines(conn, table_lines)
+                )
+            ]
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    logger.error('Exception: %s', e)
     conn.close()
 
 

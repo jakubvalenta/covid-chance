@@ -17,14 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 def get_archives(conn, table: str, feed_url: str) -> Iterator[tuple]:
-    cur = conn.cursor()
-    cur.execute(
-        f'SELECT archived_url, date FROM {table} '
-        'WHERE feed_url = %s AND archived_url IS NOT NULL;',
-        (feed_url,),
-    )
-    yield from cur
-    cur.close()
+    with conn.cursor() as cur:
+        cur.execute(
+            f'SELECT archived_url, date FROM {table} '
+            'WHERE feed_url = %s AND archived_url IS NOT NULL;',
+            (feed_url,),
+        )
+        yield from cur
 
 
 def download_archived_feeds(
@@ -41,36 +40,39 @@ def download_archived_feeds(
         user=db['user'],
         password=db['password'],
     )
-    create_table(conn, table_urls)
-    for feed in feeds:
-        if not feed.get('name') or not feed.get('url'):
-            continue
-        for archived_url, date in get_archives(
-            conn, table_archives, feed['url']
-        ):
-            logger.info('Found archived feed %s %s', date, archived_url)
-            cache_file_path = (
-                Path(cache_path)
-                / safe_filename(archived_url)
-                / 'feed_pages.csv'
-            )
-            if cache_file_path.is_file():
-                logger.info('Reading from cache')
-                with cache_file_path.open('r') as f:
-                    page_urls = [
-                        clean_url(page_url) for (page_url,) in csv.reader(f)
-                    ]
-            else:
-                try:
-                    page_urls = download_feed(archived_url, timeout=timeout)
-                except Exception:
-                    logger.error('Failed to download %s', archived_url)
-                cache_file_path.parent.mkdir(parents=True, exist_ok=True)
-                with cache_file_path.open('w') as f:
-                    writer = csv.writer(f, lineterminator='\n')
-                    writer.writerows((page_url,) for page_url in page_urls)
-            save_page_urls(conn, table_urls, feed['name'], page_urls, date)
-    conn.commit()
+    with conn:
+        create_table(conn, table_urls)
+        for feed in feeds:
+            if not feed.get('name') or not feed.get('url'):
+                continue
+            for archived_url, date in get_archives(
+                conn, table_archives, feed['url']
+            ):
+                logger.info('Found archived feed %s %s', date, archived_url)
+                cache_file_path = (
+                    Path(cache_path)
+                    / safe_filename(archived_url)
+                    / 'feed_pages.csv'
+                )
+                if cache_file_path.is_file():
+                    logger.info('Reading from cache')
+                    with cache_file_path.open('r') as f:
+                        page_urls = [
+                            clean_url(page_url)
+                            for (page_url,) in csv.reader(f)
+                        ]
+                else:
+                    try:
+                        page_urls = download_feed(
+                            archived_url, timeout=timeout
+                        )
+                    except Exception:
+                        logger.error('Failed to download %s', archived_url)
+                    cache_file_path.parent.mkdir(parents=True, exist_ok=True)
+                    with cache_file_path.open('w') as f:
+                        writer = csv.writer(f, lineterminator='\n')
+                        writer.writerows((page_url,) for page_url in page_urls)
+                save_page_urls(conn, table_urls, feed['name'], page_urls, date)
     conn.close()
 
 
