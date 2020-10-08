@@ -109,7 +109,7 @@
             <strong class="tweet__name">{{ name }}</strong>
             <span class="tweet__handle">{{ handle }}</span>
             <span class="tweet__sep">·</span>
-            <span class="tweet__time">{{ tweet.approved_str }}</span>
+            <span class="tweet__time">{% if tweet.approved %}{{ tweet.approved.strftime('%B %d') }}{% endif %}</span>
           </div>
           <div>
             {{ tweet.text }}

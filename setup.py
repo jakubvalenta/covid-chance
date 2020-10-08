@@ -24,7 +24,7 @@ setup(
     ],
     packages=find_packages(),
     install_requires=[
-        'beautifulsoup4',
+        'beautifulsoup4>=4.9.0',
         'colored',
         'feedparser',
         'lxml',
@@ -33,4 +33,5 @@ setup(
         'regex',
         'requests',
     ],
+    entry_points={'console_scripts': ['covid-chance=covid_chance.cli:main']},
 )

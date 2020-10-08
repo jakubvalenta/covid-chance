@@ -5,7 +5,7 @@ import logging
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterator, Optional, Sequence, Tuple
 from urllib.parse import urlsplit
 
 import psycopg2
@@ -36,6 +36,7 @@ class PageMeta:
 
 @dataclass
 class ExportedTweet:
+    page_url: str
     text: str
     title: str
     description: str
@@ -44,8 +45,32 @@ class ExportedTweet:
     approved: Optional[datetime.datetime]
 
     @property
-    def approved_str(self) -> str:
-        return self.approved.strftime('%B %d') if self.approved else ''
+    def image_path_rel(self) -> str:
+        p = Path(self.image_path)
+        return str(p.relative_to(p.parents[1]))
+
+    @property
+    def approved_safe(self) -> str:
+        return (
+            regex.sub(
+                '[^A-Za-z0-9_-]',
+                '-',
+                self.approved.replace(tzinfo=None).isoformat(),
+            )
+            if self.approved
+            else ''
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'text': self.text,
+            'title': self.title,
+            'description': self.description,
+            'approved': self.approved,
+            'approved_safe': self.approved_safe,
+            'image_path': self.image_path,
+            'domain': self.domain,
+        }
 
 
 def create_table(conn, table: str):
@@ -54,6 +79,7 @@ def create_table(conn, table: str):
             cur.execute(
                 f'''
 CREATE TABLE {table} (
+  url text,
   text text,
   title text,
   description text,
@@ -72,20 +98,26 @@ CREATE TABLE {table} (
         conn.commit()
 
 
-def read_exported_tweets(conn, table: str) -> Iterator[ExportedTweet]:
+def read_exported_tweets(
+    conn,
+    table: str,
+    default_tz: datetime.tzinfo,
+) -> Iterator[ExportedTweet]:
     with conn.cursor() as cur:
         cur.execute(
-            'SELECT text, title, description, image_path, domain, approved '
-            f"FROM {table};"
+            'SELECT '
+            'url, text, title, description, image_path, domain, approved '
+            f"FROM {table};",
         )
-        for text, title, description, image_path, domain, approved in cur:
+        for url, text, title, description, image_path, domain, approved in cur:
             yield ExportedTweet(
+                page_url=url,
                 text=text,
                 title=title,
                 description=description,
                 image_path=image_path,
                 domain=domain,
-                approved=approved,
+                approved=approved.replace(tzinfo=default_tz),
             )
 
 
@@ -203,6 +235,7 @@ def print_export_tweet(
     else:
         approved = None
     return ExportedTweet(
+        page_url=tweet.page_url,
         text=tweet.text,
         title=page_meta.title,
         description=page_meta.description,
@@ -212,26 +245,7 @@ def print_export_tweet(
     )
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--cache', help='Cache directory path', default='./cache'
-    )
-    parser.add_argument(
-        '-c', '--config', help='Configuration file path', required=True
-    )
-    parser.add_argument(
-        '-v', '--verbose', action='store_true', help='Enable debugging output'
-    )
-    args = parser.parse_args()
-    if args.verbose:
-        logging.basicConfig(
-            stream=sys.stderr, level=logging.INFO, format='%(message)s'
-        )
-    cache_path = Path(args.cache)
-    with open(args.config, 'r') as f:
-        config = json.load(f)
-
+def main(config: dict, cache_path: Path):
     conn = db_connect(
         database=config['db']['database'],
         user=config['db']['user'],
@@ -250,6 +264,7 @@ def main():
                 db_insert(
                     conn,
                     table_exported,
+                    url=exported_tweet.page_url,
                     text=exported_tweet.text,
                     title=exported_tweet.title,
                     description=exported_tweet.description,
@@ -260,4 +275,22 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--cache', help='Cache directory path', default='./cache'
+    )
+    parser.add_argument(
+        '-c', '--config', help='Configuration file path', required=True
+    )
+    parser.add_argument(
+        '-v', '--verbose', action='store_true', help='Enable debugging output'
+    )
+    args = parser.parse_args()
+    if args.verbose:
+        logging.basicConfig(
+            stream=sys.stderr, level=logging.INFO, format='%(message)s'
+        )
+    with open(args.config, 'r') as f:
+        config = json.load(f)
+    cache_path = Path(args.cache)
+    main(config, cache_path)
