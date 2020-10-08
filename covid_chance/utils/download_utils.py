@@ -8,6 +8,8 @@ def clean_url(
     remove_keys: Sequence[str] = (
         'fbclid',
         'ito',
+        'mc_cid',
+        'mc_eid',
         'ns_campaign',
         'ns_mchannel',
         'source',
