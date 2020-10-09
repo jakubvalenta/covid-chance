@@ -16,10 +16,13 @@ from bs4 import BeautifulSoup
 from PIL import Image
 
 from covid_chance.download_pages import download_page
-from covid_chance.post_tweet import Tweet, read_approved_tweets
-from covid_chance.utils.db_utils import db_connect, db_insert
+from covid_chance.post_tweet import (
+    Tweet, read_approved_tweets, read_posted_tweets,
+)
+from covid_chance.utils.db_utils import db_connect, db_insert, db_select
 from covid_chance.utils.download_utils import simplify_url
 from covid_chance.utils.file_utils import safe_filename
+from covid_chance.utils.hash_utils import md5str
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +45,7 @@ class ExportedTweet:
     description: str
     image_path: str
     domain: str
-    approved: Optional[datetime.datetime]
+    timestamp: Optional[datetime.datetime]
 
     @property
     def image_path_rel(self) -> str:
@@ -50,24 +53,29 @@ class ExportedTweet:
         return str(p.relative_to(p.parents[1]))
 
     @property
-    def approved_safe(self) -> str:
+    def timestamp_safe(self) -> str:
         return (
             regex.sub(
                 '[^A-Za-z0-9_-]',
                 '-',
-                self.approved.replace(tzinfo=None).isoformat(),
+                self.timestamp.replace(tzinfo=None).isoformat(),
             )
-            if self.approved
+            if self.timestamp
             else ''
         )
+
+    @property
+    def text_hash(self) -> str:
+        return md5str(self.text)[:7]
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             'text': self.text,
+            'text_hash': self.text_hash,
             'title': self.title,
             'description': self.description,
-            'approved': self.approved,
-            'approved_safe': self.approved_safe,
+            'timestamp': self.timestamp,
+            'timestamp_safe': self.timestamp_safe,
             'image_path': self.image_path,
             'domain': self.domain,
         }
@@ -85,7 +93,7 @@ CREATE TABLE {table} (
   description text,
   image_path text,
   domain text,
-  approved timestamp,
+  timestamp timestamp,
   inserted timestamp DEFAULT NOW()
 );
 '''
@@ -106,10 +114,18 @@ def read_exported_tweets(
     with conn.cursor() as cur:
         cur.execute(
             'SELECT '
-            'url, text, title, description, image_path, domain, approved '
+            'url, text, title, description, image_path, domain, timestamp '
             f"FROM {table};",
         )
-        for url, text, title, description, image_path, domain, approved in cur:
+        for (
+            url,
+            text,
+            title,
+            description,
+            image_path,
+            domain,
+            timestamp,
+        ) in cur:
             yield ExportedTweet(
                 page_url=url,
                 text=text,
@@ -117,7 +133,7 @@ def read_exported_tweets(
                 description=description,
                 image_path=image_path,
                 domain=domain,
-                approved=approved.replace(tzinfo=default_tz),
+                timestamp=timestamp.replace(tzinfo=default_tz),
             )
 
 
@@ -231,9 +247,9 @@ def print_export_tweet(
     domain = urlsplit(tweet.page_url).netloc
     domain = regex.sub(r'^www\.', '', domain)
     if tweet.inserted:
-        approved: Optional[datetime.datetime] = tweet.inserted
+        timestamp: Optional[datetime.datetime] = tweet.inserted
     else:
-        approved = None
+        timestamp = None
     return ExportedTweet(
         page_url=tweet.page_url,
         text=tweet.text,
@@ -241,37 +257,44 @@ def print_export_tweet(
         description=page_meta.description,
         image_path=str(image_path),
         domain=domain,
-        approved=approved,
+        timestamp=timestamp,
     )
 
 
-def main(config: dict, cache_path: Path):
+def main(config: dict, cache_path: Path, approved: bool = False):
     conn = db_connect(
         database=config['db']['database'],
         user=config['db']['user'],
         password=config['db']['password'],
     )
     with conn:
+        table_posted = config['db']['table_posted']
         table_reviewed = config['db']['table_reviewed']
         table_exported = config['db']['table_print_export']
         create_table(conn, table_exported)
 
-        approved_tweets = list(read_approved_tweets(conn, table_reviewed))
+        if approved:
+            tweets = list(read_approved_tweets(conn, table_reviewed))
+        else:
+            tweets = list(read_posted_tweets(conn, table_posted))
 
-        for i, tweet in enumerate(approved_tweets):
+        for i, tweet in enumerate(tweets):
             exported_tweet = print_export_tweet(cache_path, tweet)
-            if exported_tweet:
-                db_insert(
-                    conn,
-                    table_exported,
-                    url=exported_tweet.page_url,
-                    text=exported_tweet.text,
-                    title=exported_tweet.title,
-                    description=exported_tweet.description,
-                    image_path=exported_tweet.image_path,
-                    domain=exported_tweet.domain,
-                    approved=exported_tweet.approved,
-                )
+            if not exported_tweet:
+                continue
+            if db_select(conn, table_exported, text=exported_tweet.text):
+                continue
+            db_insert(
+                conn,
+                table_exported,
+                url=exported_tweet.page_url,
+                text=exported_tweet.text,
+                title=exported_tweet.title,
+                description=exported_tweet.description,
+                image_path=exported_tweet.image_path,
+                domain=exported_tweet.domain,
+                timestamp=exported_tweet.timestamp,
+            )
 
 
 if __name__ == '__main__':
@@ -281,6 +304,12 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-c', '--config', help='Configuration file path', required=True
+    )
+    parser.add_argument(
+        '-a',
+        '--approved',
+        action='store_true',
+        help='Export all approved tweets (instead of only the posted ones)',
     )
     parser.add_argument(
         '-v', '--verbose', action='store_true', help='Enable debugging output'
@@ -293,4 +322,4 @@ if __name__ == '__main__':
     with open(args.config, 'r') as f:
         config = json.load(f)
     cache_path = Path(args.cache)
-    main(config, cache_path)
+    main(config, cache_path, approved=args.approved)

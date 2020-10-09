@@ -13,7 +13,7 @@ def print_export(config, args):
     from covid_chance.print_export import main
 
     cache_path = Path(args.cache)
-    main(config, cache_path)
+    main(config, cache_path, approved=args.approved)
 
 
 def print_format(config, args):
@@ -41,6 +41,12 @@ def main():
         '--cache',
         help='Cache directory path',
         required=True,
+    )
+    print_export_parser.add_argument(
+        '-a',
+        '--approved',
+        action='store_true',
+        help='Export all approved tweets (instead of only the posted ones)',
     )
     print_format_parser = subparsers.add_parser(
         'print-format', help='Print format'
