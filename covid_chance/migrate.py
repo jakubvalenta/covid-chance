@@ -6,7 +6,7 @@ from sqlalchemy.orm.session import Session
 
 from covid_chance.model import (
     ArchivedPageURL, ExportedTweet, Page, PageLine, PageURL, ParsedPageLine,
-    PostedTweet, Tweet, count, create_session,
+    PostedTweet, Tweet, TweetReviewStatus, count, create_session,
 )
 
 logger = logging.getLogger(__name__)
@@ -125,7 +125,9 @@ def migrate_page_lines(session: Session, cur, table_lines: str):
         logger.debug('%d %s', n_in, url)
         if not count(
             session.query(PageLine).filter(
-                PageLine.url == url, PageLine.param_hash == param_hash
+                PageLine.url == url,
+                PageLine.line == line,
+                PageLine.param_hash == param_hash,
             )
         ):
             page_line = PageLine(
@@ -164,6 +166,7 @@ def migrate_parsed_page_lines(session: Session, cur, table_parsed: str):
         if not count(
             session.query(ParsedPageLine).filter(
                 ParsedPageLine.url == url,
+                ParsedPageLine.line == line,
                 ParsedPageLine.param_hash == param_hash,
             )
         ):
@@ -190,6 +193,16 @@ def migrate_parsed_page_lines(session: Session, cur, table_parsed: str):
     )
 
 
+def convert_status(status_str) -> TweetReviewStatus:
+    if not status_str:
+        return TweetReviewStatus.none
+    if status_str in ('accept', 'approved'):
+        return TweetReviewStatus.approved
+    if status_str == 'rejected':
+        return TweetReviewStatus.rejected
+    raise ValueError(f'Invalid status "{status_str}"')
+
+
 def migrate_tweets(session: Session, cur, table_reviewed: str):
     t0 = time.time()
     logger.info('Migrating %s', table_reviewed)
@@ -199,7 +212,7 @@ def migrate_tweets(session: Session, cur, table_reviewed: str):
         'SELECT url, line, parsed, status, edited, inserted '
         f'FROM {table_reviewed}'
     )
-    for url, line, parsed, status, edited, inserted in cur:
+    for url, line, parsed, status_str, edited, inserted in cur:
         n_in += 1
         logger.debug('%d %s', n_in, url)
         if not count(
@@ -211,7 +224,7 @@ def migrate_tweets(session: Session, cur, table_reviewed: str):
                 url=url,
                 line=line,
                 parsed=parsed,
-                status=status,
+                status=convert_status(status_str),
                 edited=edited,
                 inserted=inserted,
             )
@@ -240,7 +253,7 @@ def migrate_posted_tweets(session: Session, cur, table_posted: str):
         'SELECT url, line, parsed, status, edited, tweet, inserted '
         f'FROM {table_posted}'
     )
-    for url, line, parsed, status, edited, tweet, inserted in cur:
+    for url, line, parsed, status_str, edited, tweet, inserted in cur:
         n_in += 1
         logger.debug('%d %s', n_in, url)
         if not count(
@@ -250,7 +263,7 @@ def migrate_posted_tweets(session: Session, cur, table_posted: str):
                 url=url,
                 line=line,
                 parsed=parsed,
-                status=status,
+                status=convert_status(status_str),
                 edited=edited,
                 text=tweet,
                 inserted=inserted,
@@ -277,7 +290,7 @@ def migrate_exported_tweets(session: Session, cur, table_print_export: str):
     n_in = 0
     n_out = 0
     cur.execute(
-        'SELECT url, text, title, description, image_path, domain, timstamp, '
+        'SELECT url, text, title, description, image_path, domain, timestamp, '
         f'inserted FROM {table_print_export}'
     )
     for (

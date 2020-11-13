@@ -142,7 +142,7 @@ class PostedTweet(Base):  # type: ignore
     url = Column(String)
     line = Column(String)
     parsed = Column(String)
-    status = Column(String)
+    status = Column(Enum(TweetReviewStatus), default=TweetReviewStatus.none)
     edited = Column(String)
     text = Column(String, unique=True)
     inserted = Column(DateTime, default=datetime.datetime.now)
