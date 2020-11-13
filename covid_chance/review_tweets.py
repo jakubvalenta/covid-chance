@@ -1,112 +1,16 @@
-import argparse
-import datetime
-import json
 import logging
 import readline
-import sys
-from dataclasses import dataclass
 from textwrap import fill
-from typing import Any, Dict, Iterator, Optional
+from typing import Optional
 
 import colored
-import psycopg2
-import psycopg2.errorcodes
+from sqlalchemy import inspect
 
-from covid_chance.utils.db_utils import (
-    db_connect, db_count, db_update_or_insert,
+from covid_chance.model import (
+    PageLine, ParsedPageLine, Tweet, TweetReviewStatus, create_session,
 )
-from covid_chance.utils.dict_utils import deep_get
 
 logger = logging.getLogger(__name__)
-
-REVIEW_STATUS_APPROVED = 'approved'
-REVIEW_STATUS_REJECTED = 'rejected'
-
-
-@dataclass
-class Tweet:
-    page_url: str
-    line: str
-    parsed: str
-    status: str
-    edited: str
-    inserted: Optional[datetime.datetime]
-
-    @property
-    def text(self) -> str:
-        return self.edited or self.parsed
-
-
-def create_table(conn, table: str):
-    with conn.cursor() as cur:
-        try:
-            cur.execute(
-                f'''
-CREATE TABLE {table} (
-  url text,
-  line text,
-  parsed text,
-  status text,
-  edited text,
-  inserted timestamp DEFAULT NOW()
-);
-CREATE INDEX index_{table}_url ON {table} (url);
-CREATE INDEX index_{table}_parsed ON {table} (parsed);
-'''
-            )
-        except psycopg2.ProgrammingError as e:
-            if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
-                pass
-            else:
-                raise
-        conn.commit()
-
-
-def read_tweets(conn, table: str) -> Iterator[Tweet]:
-    with conn.cursor() as cur:
-        cur.execute(
-            f"SELECT url, line, parsed FROM {table} WHERE parsed != '';"
-        )
-        for url, line, parsed in cur:
-            yield Tweet(
-                page_url=url,
-                line=line,
-                parsed=parsed,
-                status='',
-                edited='',
-                inserted=None,
-            )
-
-
-def read_reviewed_tweets(conn, table: str) -> Iterator[Tweet]:
-    with conn.cursor() as cur:
-        cur.execute(
-            f"SELECT url, line, parsed, status, edited, inserted FROM {table};"
-        )
-        for url, line, parsed, status, edited, inserted in cur:
-            yield Tweet(
-                page_url=url,
-                line=line,
-                parsed=parsed,
-                status=status,
-                edited=edited,
-                inserted=inserted,
-            )
-
-
-def write_reviewed_tweet(conn, table: str, tweet: Tweet):
-    where = {
-        'url': tweet.page_url,
-        'line': tweet.line,
-        'parsed': tweet.parsed,
-    }
-    values: Dict[str, Any] = {
-        'status': tweet.status,
-        'edited': tweet.edited,
-    }
-    if tweet.inserted:
-        values['inserted'] = tweet.inserted
-    db_update_or_insert(conn, table, where, **values)
 
 
 def rlinput(prompt, prefill: str = '') -> Optional[str]:
@@ -126,7 +30,6 @@ def print_tweet(
     tweet: Tweet,
     i: Optional[int] = None,
     total: Optional[int] = None,
-    max_tweet_length: int = 280,
     highlight: bool = False,
     counter_width: int = 10,
     line_width: int = 80,
@@ -139,11 +42,11 @@ def print_tweet(
         end='',
     )
     print(tweet.status.upper(), end='')
-    if len(tweet.text) > max_tweet_length:
+    if tweet.invalid:
         print(
             '  ',
             colored.stylize(
-                f'too long ({len(tweet.text)}/{max_tweet_length})',
+                f'too long ({len(tweet.text)}/{tweet.MAX_TWEET_LENGTH})',
                 colored.fg('red'),
             ),
             end='',
@@ -163,43 +66,49 @@ def print_tweet(
         print()
 
 
-def review_tweets(conn, config, review_all: bool, incl_approved: bool):
-    max_tweet_length = deep_get(
-        config, ['review_tweets', 'max_tweet_length'], default=247
-    )
-    table_lines = config['db']['table_lines']
-    table_parsed = config['db']['table_parsed']
-    table_reviewed = config['db']['table_reviewed']
-    create_table(conn, table_reviewed)
+def main(config, review_all: bool, incl_approved: bool):
+    session = create_session(config['db']['url'])
 
-    tweets = list(read_tweets(conn, table_parsed))
-    reviewed_tweets = list(read_reviewed_tweets(conn, table_reviewed))
+    parsed_page_lines = session.query(ParsedPageLine).filter(
+        ParsedPageLine.parsed != ''
+    )
+    reviewed_tweets = session.query(Tweet).filter(
+        Tweet.status != TweetReviewStatus.none
+    )
     approved_tweets = [
-        t for t in reviewed_tweets if t.status == REVIEW_STATUS_APPROVED
+        t for t in reviewed_tweets if t.status == TweetReviewStatus.approved
     ]
     rejected_tweets = [
-        t for t in reviewed_tweets if t.status == REVIEW_STATUS_REJECTED
-    ]
-    invalid_approved_tweets = [
-        t for t in approved_tweets if len(t.text) > max_tweet_length
+        t for t in reviewed_tweets if t.status == TweetReviewStatus.rejected
     ]
     if review_all:
-        pending_tweets = tweets
+        pending_parsed_page_lines = parsed_page_lines
     else:
         reviewed_tweets_parsed = [
-            t.parsed for t in reviewed_tweets if t.status
+            tweet.parsed
+            for tweet in session.query(Tweet).filter(
+                Tweet.status != TweetReviewStatus.none
+            )
         ]
-        pending_tweets = [
-            t for t in tweets if t.parsed not in reviewed_tweets_parsed
-        ]
+        pending_parsed_page_lines = parsed_page_lines.filter(
+            ParsedPageLine.parsed.notin_(reviewed_tweets_parsed)
+        )
+    pending_tweets = [
+        Tweet.from_parsed_line(parsed_line)
+        for parsed_line in pending_parsed_page_lines
+    ]
+    if not review_all:
         if incl_approved:
             pending_tweets += approved_tweets
         else:
+            invalid_approved_tweets = [t for t in approved_tweets if t.invalid]
             pending_tweets += invalid_approved_tweets
     total_pending_tweets = len(pending_tweets)
 
-    logger.info('Number of matching lines:   %d', db_count(conn, table_lines))
-    logger.info('Number of all tweets:       %d', len(tweets))
+    logger.info(
+        'Number of matching lines:   %d', session.query(PageLine).count()
+    )
+    logger.info('Number of parsed tweets:    %d', parsed_page_lines.count())
     logger.info('Number of approved tweets:  %d', len(approved_tweets))
     logger.info('Number of rejected tweets:  %d', len(rejected_tweets))
     logger.info('Number of tweets to review: %d', total_pending_tweets)
@@ -211,7 +120,6 @@ def review_tweets(conn, config, review_all: bool, incl_approved: bool):
             tweet,
             i=i + 1,
             total=total_pending_tweets,
-            max_tweet_length=max_tweet_length,
             highlight=True,
         )
         inp = None
@@ -235,9 +143,9 @@ def review_tweets(conn, config, review_all: bool, incl_approved: bool):
             i = max(i - 1, 0)
             continue
         if inp in ('y' or ''):
-            tweet.status = REVIEW_STATUS_APPROVED
+            tweet.status = TweetReviewStatus.approved
         elif inp == 'n':
-            tweet.status = REVIEW_STATUS_REJECTED
+            tweet.status = TweetReviewStatus.rejected
         elif inp == 'e':
             edited_text = None
             while edited_text is None:
@@ -247,53 +155,12 @@ def review_tweets(conn, config, review_all: bool, incl_approved: bool):
                 )
             tweet.edited = edited_text
             if edited_text == '':
-                tweet.status = REVIEW_STATUS_REJECTED
+                tweet.status = TweetReviewStatus.rejected
             else:
-                tweet.status = REVIEW_STATUS_APPROVED
+                tweet.status = TweetReviewStatus.approved
         else:
             raise NotImplementedError('Invalid input')
-        write_reviewed_tweet(conn, table_reviewed, tweet)
+        if inspect(tweet).transient:
+            session.add(tweet)
+        session.commit()
         i = i + 1
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-c', '--config', help='Configuration file path', required=True
-    )
-    parser.add_argument(
-        '-a',
-        '--all',
-        action='store_true',
-        help='Review all already reviewed tweets again',
-    )
-    parser.add_argument(
-        '-p',
-        '--approved',
-        action='store_true',
-        help='Review approved tweets again',
-    )
-    parser.add_argument(
-        '-v', '--verbose', action='store_true', help='Enable debugging output'
-    )
-    args = parser.parse_args()
-    if args.verbose:
-        logging.basicConfig(
-            stream=sys.stderr, level=logging.INFO, format='%(message)s'
-        )
-    with open(args.config, 'r') as f:
-        config = json.load(f)
-
-    conn = db_connect(
-        database=config['db']['database'],
-        user=config['db']['user'],
-        password=config['db']['password'],
-    )
-    with conn:
-        review_tweets(
-            conn, config, review_all=args.all, incl_approved=args.approved
-        )
-
-
-if __name__ == '__main__':
-    main()

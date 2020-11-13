@@ -1,17 +1,6 @@
 {
   "db": {
-    "host": "/run/postgresql",
-    "database": "covid_chance",
-    "user": "postgres",
-    "password": "postgres",
-    "table_archives": "archives",
-    "table_lines": "lines",
-    "table_pages": "pages",
-    "table_parsed": "parsed",
-    "table_posted": "posted",
-    "table_print_export": "print_export",
-    "table_reviewed": "reviewed",
-    "table_urls": "urls"
+    "url": "postgresql://postgres:postgres@/covid_chance_new"
   },
   "feeds": [
     {
@@ -36,9 +25,6 @@
   },
   "parse_lines": {
     "pattern": "(?P<parsed>.+)"
-  },
-  "review_tweets": {
-    "max_tweet_length": 247
   },
   "post_tweet": {
     "profile_name": "Covid-19 is...",

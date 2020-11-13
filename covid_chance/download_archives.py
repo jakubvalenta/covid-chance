@@ -1,46 +1,17 @@
-import argparse
 import datetime
-import json
 import logging
-import sys
-from typing import Dict, List, Optional
+from typing import Optional
 from urllib.parse import urlsplit
 
-import psycopg2
-import psycopg2.errorcodes
 import requests
 
-from covid_chance.utils.db_utils import db_connect, db_insert, db_select
+from covid_chance.model import ArchivedPageURL, create_session
 
 logger = logging.getLogger(__name__)
 
 
 class ArchiveError(Exception):
     pass
-
-
-def create_table(conn, table: str):
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            f'''
-CREATE TABLE {table} (
-  feed_url text,
-  archived_url text,
-  date timestamp DEFAULT NOW(),
-  inserted timestamp DEFAULT NOW()
-);
-CREATE INDEX index_{table}_feed_url ON {table} (feed_url);
-CREATE INDEX index_{table}_date ON {table} (date);
-'''
-        )
-    except psycopg2.ProgrammingError as e:
-        if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
-            pass
-        else:
-            raise
-    conn.commit()
-    cur.close()
 
 
 def get_from_web_archive(url: str, *args, **kwargs) -> requests.Response:
@@ -72,63 +43,30 @@ def find_closest_snapshot_url(url: str, date: datetime.date) -> Optional[str]:
     return snapshot_url
 
 
-def download_feed_archives(
-    db: dict,
-    table: str,
-    feeds: List[Dict[str, str]],
-    dates: List[datetime.datetime],
-):
-    conn = db_connect(
-        host=db['host'],
-        database=db['database'],
-        user=db['user'],
-        password=db['password'],
-    )
-    with conn:
-        create_table(conn, table)
-        for feed in feeds:
-            if feed.get('name') and feed.get('url'):
-                for date in dates:
-                    if not db_select(
-                        conn, table, feed_url=feed['url'], date=date
-                    ):
-                        archived_url = find_closest_snapshot_url(
-                            feed['url'], date
-                        )
-                        db_insert(
-                            conn,
-                            table,
-                            feed_url=feed['url'],
-                            archived_url=archived_url,
-                            date=date,
-                        )
-    conn.close()
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-c', '--config', help='Configuration file path', required=True
-    )
-    parser.add_argument(
-        '-v', '--verbose', action='store_true', help='Enable debugging output'
-    )
-    args = parser.parse_args()
-    if args.verbose:
-        logging.basicConfig(
-            stream=sys.stderr, level=logging.INFO, format='%(message)s'
-        )
-    with open(args.config, 'r') as f:
-        config = json.load(f)
-    download_feed_archives(
-        db=config['db'],
-        table=config['db']['table_archives'],
-        feeds=config['feeds'],
-        dates=[
-            datetime.datetime.fromisoformat(d) for d in config['archive_dates']
-        ],
-    )
-
-
-if __name__ == '__main__':
-    main()
+def main(config: dict):
+    feeds = config['feeds']
+    dates = [
+        datetime.datetime.fromisoformat(d) for d in config['archive_dates']
+    ]
+    session = create_session(config['db']['url'])
+    for feed in feeds:
+        if not feed.get('name') or not feed.get('url'):
+            continue
+        for date in dates:
+            if (
+                session.query(ArchivedPageURL)
+                .filter(
+                    ArchivedPageURL.feed_url == feed['url'],
+                    ArchivedPageURL.date == date,
+                )
+                .exists()
+            ):
+                continue
+            archived_url = find_closest_snapshot_url(feed['url'], date)
+            archived_page_url = ArchivedPageURL(
+                feed_url=feed['url'],
+                archived_url=archived_url,
+                date=date,
+            )
+            session.add(archived_page_url)
+            session.commit()

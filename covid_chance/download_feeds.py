@@ -1,42 +1,17 @@
-import argparse
 import concurrent.futures
 import datetime
-import json
 import logging
-import sys
-from typing import Dict, List
+from typing import List
 
 import feedparser
-import psycopg2
-import psycopg2.errorcodes
 import requests
+from sqlalchemy.orm.session import Session
 
-from covid_chance.utils.db_utils import db_connect, db_insert, db_select
+from covid_chance.model import PageURL, create_session
 from covid_chance.utils.dict_utils import deep_get
 from covid_chance.utils.download_utils import clean_url
 
 logger = logging.getLogger(__name__)
-
-
-def create_table(conn, table: str):
-    with conn.cursor() as cur:
-        try:
-            cur.execute(
-                f'''
-CREATE TABLE {table} (
-  url text PRIMARY KEY,
-  feed_name text,
-  inserted timestamp DEFAULT NOW()
-);
-CREATE INDEX index_{table}_url ON {table} (url);
-'''
-            )
-        except psycopg2.ProgrammingError as e:
-            if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
-                pass
-            else:
-                raise
-        conn.commit()
 
 
 def download_feed(url: str, timeout: int = 10) -> List[str]:
@@ -59,106 +34,63 @@ def download_feed(url: str, timeout: int = 10) -> List[str]:
 
 
 def save_page_urls(
-    conn,
-    table: str,
+    session: Session,
     feed_name: str,
     page_urls: List[str],
     mtime: datetime.datetime,
 ):
-    with conn.cursor() as cur:
-        missing_page_urls = [
-            page_url
-            for page_url in set(page_urls)
-            if not db_select(conn, table, cur=cur, url=page_url)
-        ]
-        for page_url in missing_page_urls:
-            try:
-                db_insert(
-                    conn,
-                    table,
-                    cur=cur,
-                    url=page_url,
-                    feed_name=feed_name,
-                    inserted=mtime,
-                )
-            except Exception as e:
-                logger.error(
-                    'Error while inserting new URL in the db %s %s',
-                    page_url,
-                    e,
-                )
-        conn.commit()
+    counter = 0
+    for page_url in set(page_urls):
+        if session.query(PageURL).filter(url=page_url).exists():
+            continue
+        try:
+            page_url = PageURL(
+                url=page_url, feed_name=feed_name, inserted=mtime
+            )
+            session.add(page_url)
+            counter += 1
+        except Exception as e:
+            logger.error(
+                'Error while inserting new URL in the db %s %s',
+                page_url,
+                e,
+            )
+    session.commit()
     logger.info(
         'done %s %d urls inserted',
         feed_name.ljust(40),
-        len(missing_page_urls),
+        counter,
     )
 
 
 def download_and_save_feed(
-    conn, table: str, feed_name: str, feed_url: str, timeout: int
+    session: Session, feed_name: str, feed_url: str, timeout: int
 ):
     mtime = datetime.datetime.now()
     page_urls = download_feed(feed_url, timeout)
-    save_page_urls(conn, table, feed_name, page_urls, mtime)
+    save_page_urls(session, feed_name, page_urls, mtime)
 
 
-def download_feeds(
-    db: dict, table: str, feeds: List[Dict[str, str]], timeout: int
-):
-    conn = db_connect(
-        host=db['host'],
-        database=db['database'],
-        user=db['user'],
-        password=db['password'],
+def main(config: dict):
+    feeds = config['feeds']
+    timeout = deep_get(
+        config, ['download_feeds', 'timeout'], default=30, process=int
     )
-    with conn:
-        create_table(conn, table)
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = [
-                executor.submit(
-                    download_and_save_feed,
-                    conn,
-                    table=table,
-                    feed_name=feed['name'],
-                    feed_url=feed['url'],
-                    timeout=timeout,
-                )
-                for feed in feeds
-                if feed.get('name') and feed.get('url')
-            ]
-            for future in concurrent.futures.as_completed(futures):
-                try:
-                    future.result()
-                except Exception as e:
-                    logger.error('Exception: %s', e)
-    conn.close()
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-c', '--config', help='Configuration file path', required=True
-    )
-    parser.add_argument(
-        '-v', '--verbose', action='store_true', help='Enable debugging output'
-    )
-    args = parser.parse_args()
-    if args.verbose:
-        logging.basicConfig(
-            stream=sys.stderr, level=logging.INFO, format='%(message)s'
-        )
-    with open(args.config, 'r') as f:
-        config = json.load(f)
-    download_feeds(
-        db=config['db'],
-        table=config['db']['table_urls'],
-        feeds=config['feeds'],
-        timeout=deep_get(
-            config, ['download_feeds', 'timeout'], default=30, process=int
-        ),
-    )
-
-
-if __name__ == '__main__':
-    main()
+    session = create_session(config['db']['url'])
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(
+                download_and_save_feed,
+                session,
+                feed_name=feed['name'],
+                feed_url=feed['url'],
+                timeout=timeout,
+            )
+            for feed in feeds
+            if feed.get('name') and feed.get('url')
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                future.result()
+            except Exception as e:
+                logger.error('Exception: %s', e)

@@ -1,47 +1,13 @@
-import argparse
 import concurrent.futures
-import json
 import logging
-import sys
-from typing import Iterator, Sequence
+from typing import Sequence
 
-import psycopg2
-import psycopg2.errorcodes
+from sqlalchemy.orm.session import Session
 
-from covid_chance.utils.db_utils import db_connect, db_insert, db_select
+from covid_chance.model import Page, PageLine, create_session
 from covid_chance.utils.hash_utils import hashobj
 
 logger = logging.getLogger(__name__)
-
-
-def create_table(conn, table: str):
-    with conn.cursor() as cur:
-        try:
-            cur.execute(
-                f'''
-CREATE TABLE {table} (
-  url text,
-  line text,
-  param_hash text,
-  inserted timestamp DEFAULT NOW()
-);
-CREATE INDEX index_{table}_url ON {table} (url);
-CREATE INDEX index_{table}_param_hash ON {table} (param_hash);
-'''
-            )
-        except psycopg2.ProgrammingError as e:
-            if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
-                pass
-            else:
-                raise
-        conn.commit()
-
-
-def get_pages(conn, table: str, itersize: int = 10_000) -> Iterator[tuple]:
-    with conn.cursor('select-pages') as cur:
-        cur.itersize = itersize
-        cur.execute(f'SELECT url, text FROM {table};')
-        yield from cur
 
 
 def contains_any_keyword(s: str, keyword_list: Sequence[str]) -> bool:
@@ -62,40 +28,31 @@ def contains_keyword_from_each_list(
 
 
 def match_page_lines(
-    conn,
-    table: str,
+    session: Session,
     i: int,
-    page_url: str,
-    page_text: str,
+    page: Page,
     keyword_lists: Sequence[Sequence[str]],
     param_hash: str,
 ):
-    if db_select(conn, table, url=page_url, param_hash=param_hash):
+    if (
+        session.query(PageLine)
+        .filter(url=page.url, param_hash=param_hash)
+        .exists()
+    ):
         return
-    logger.info('%d Matched %s', i, page_url)
-    with conn.cursor() as cur:
-        inserted = False
-        for line in page_text.splitlines():
-            if contains_keyword_from_each_list(line, keyword_lists):
-                db_insert(
-                    conn,
-                    table,
-                    cur=cur,
-                    url=page_url,
-                    line=line.strip(),
-                    param_hash=param_hash,
-                )
-                inserted = True
-        if not inserted:
-            db_insert(
-                conn,
-                table,
-                cur=cur,
-                url=page_url,
-                line='',
-                param_hash=param_hash,
+    logger.info('%d Matched %s', i, page.url)
+    inserted = False
+    for line in page.text.splitlines():
+        if contains_keyword_from_each_list(line, keyword_lists):
+            page_line = PageLine(
+                url=page.url, line=line.strip(), param_hash=param_hash
             )
-        conn.commit()
+            session.add(page_line)
+            inserted = True
+    if not inserted:
+        page_line = PageLine(url=page.url, param_hash=param_hash)
+        session.add(page_line)
+    session.commit()
 
 
 def log_future_exception(future: concurrent.futures.Future):
@@ -105,61 +62,18 @@ def log_future_exception(future: concurrent.futures.Future):
         logger.error('Exception: %s', e)
 
 
-def match_lines(
-    db: dict,
-    keyword_lists: Sequence[Sequence[str]],
-    table_lines: str,
-    table_pages: str,
-):
-    conn = db_connect(
-        host=db['host'],
-        database=db['database'],
-        user=db['user'],
-        password=db['password'],
-    )
-    with conn:
-        param_hash = hashobj(keyword_lists)
-        create_table(conn, table_lines)
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            for i, (page_url, page_text) in enumerate(
-                get_pages(conn, table_pages)
-            ):
-                future = executor.submit(
-                    match_page_lines,
-                    conn,
-                    table_lines,
-                    i,
-                    page_url,
-                    page_text,
-                    keyword_lists,
-                    param_hash,
-                )
-                future.add_done_callback(log_future_exception)
-    conn.close()
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-c', '--config', help='Configuration file path', required=True
-    )
-    parser.add_argument(
-        '-v', '--verbose', action='store_true', help='Enable debugging output'
-    )
-    args = parser.parse_args()
-    if args.verbose:
-        logging.basicConfig(
-            stream=sys.stderr, level=logging.INFO, format='%(message)s'
-        )
-    with open(args.config, 'r') as f:
-        config = json.load(f)
-    match_lines(
-        db=config['db'],
-        keyword_lists=config['match_lines']['keyword_lists'],
-        table_lines=config['db']['table_lines'],
-        table_pages=config['db']['table_pages'],
-    )
-
-
-if __name__ == '__main__':
-    main()
+def main(config: dict):
+    keyword_lists = config['match_lines']['keyword_lists']
+    session = create_session(config['db']['url'])
+    param_hash = hashobj(keyword_lists)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        for i, page in enumerate(session.query(Page).all()):
+            future = executor.submit(
+                match_page_lines,
+                session,
+                i,
+                page,
+                keyword_lists,
+                param_hash,
+            )
+            future.add_done_callback(log_future_exception)
