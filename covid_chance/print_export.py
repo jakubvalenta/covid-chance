@@ -164,14 +164,12 @@ def main(config: dict, cache_path: Path, approved: bool = False):
         tweets = session.query(PostedTweet).all()
     for tweet in tweets:
         exported_tweet = print_export_tweet(cache_path, tweet)
-        if not exported_tweet:
-            continue
         if (
-            session.query(ExportedTweet)
+            exported_tweet
+            and not session.query(ExportedTweet)
             .filter(ExportedTweet.text == exported_tweet.text)
-            .exists()
+            .count()
         ):
-            continue
-        session.add(exported_tweet)
-        session.flush()
+            session.add(exported_tweet)
+            session.flush()
     session.commit()

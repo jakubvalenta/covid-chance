@@ -15,11 +15,10 @@ def migrate_page_urls(session: Session, cur, table_urls: str):
     logger.info('Migrating %s', table_urls)
     n_in = 0
     n_out = 0
-    for (url, feed_name, inserted) in cur.execute(
-        f'SELECT url, feed_name, inserted FROM {table_urls}'
-    ):
+    cur.execute(f'SELECT url, feed_name, inserted FROM {table_urls}')
+    for url, feed_name, inserted in cur:
         n_in += 1
-        if not session.query(PageURL).filter(PageURL.url == url).exists():
+        if not session.query(PageURL).filter(PageURL.url == url).count():
             page_url = PageURL(
                 url=url,
                 feed_name=feed_name,
@@ -35,9 +34,10 @@ def migrate_archived_page_urls(session: Session, cur, table_archives: str):
     logger.info('Migrating %s', table_archives)
     n_in = 0
     n_out = 0
-    for (feed_url, archived_url, date, inserted) in cur.execute(
+    cur.execute(
         f'SELECT feed_url, archived_url, date, inserted FROM {table_archives}'
-    ):
+    )
+    for feed_url, archived_url, date, inserted in cur:
         n_in += 1
         if (
             not session.query(ArchivedPageURL)
@@ -46,7 +46,7 @@ def migrate_archived_page_urls(session: Session, cur, table_archives: str):
                 ArchivedPageURL.archived_url == archived_url,
                 ArchivedPageURL.date == date,
             )
-            .exists()
+            .count()
         ):
             archived_page_url = ArchivedPageURL(
                 feed_url=feed_url,
@@ -64,11 +64,10 @@ def migrate_pages(session: Session, cur, table_pages: str):
     logger.info('Migrating %s', table_pages)
     n_in = 0
     n_out = 0
-    for (url, text, inserted) in cur.execute(
-        f'SELECT url, text, inserted FROM {table_pages}'
-    ):
+    cur.execute(f'SELECT url, text, inserted FROM {table_pages}')
+    for url, text, inserted in cur:
         n_in += 1
-        if not session.query(Page).filter(Page.url == url).exists():
+        if not session.query(Page).filter(Page.url == url).count():
             page = Page(
                 url=url,
                 text=text,
@@ -84,14 +83,13 @@ def migrate_page_lines(session: Session, cur, table_lines: str):
     logger.info('Migrating %s', table_lines)
     n_in = 0
     n_out = 0
-    for (url, line, param_hash, inserted) in cur.execute(
-        f'SELECT url, line, param_hash, inserted FROM {table_lines}'
-    ):
+    cur.execute(f'SELECT url, line, param_hash, inserted FROM {table_lines}')
+    for url, line, param_hash, inserted in cur:
         n_in += 1
         if (
             not session.query(PageLine)
             .filter(PageLine.url == url, PageLine.param_hash == param_hash)
-            .exists()
+            .count()
         ):
             page_line = PageLine(
                 url=url,
@@ -109,10 +107,10 @@ def migrate_parsed_page_lines(session: Session, cur, table_parsed: str):
     logger.info('Migrating %s', table_parsed)
     n_in = 0
     n_out = 0
-    for (url, line, parsed, param_hash, inserted) in cur.execute(
-        'SELECT url, line, parsed, param_hash, inserted '
-        f'FROM {table_parsed}'
-    ):
+    cur.execute(
+        f'SELECT url, line, parsed, param_hash, inserted FROM {table_parsed}'
+    )
+    for url, line, parsed, param_hash, inserted in cur:
         n_in += 1
         if (
             not session.query(ParsedPageLine)
@@ -120,7 +118,7 @@ def migrate_parsed_page_lines(session: Session, cur, table_parsed: str):
                 ParsedPageLine.url == url,
                 ParsedPageLine.param_hash == param_hash,
             )
-            .exists()
+            .count()
         ):
             parsed_page_line = ParsedPageLine(
                 url=url,
@@ -139,15 +137,16 @@ def migrate_tweets(session: Session, cur, table_reviewed: str):
     logger.info('Migrating %s', table_reviewed)
     n_in = 0
     n_out = 0
-    for (url, line, parsed, status, edited, inserted) in cur.execute(
+    cur.execute(
         'SELECT url, line, parsed, status, edited, inserted '
         f'FROM {table_reviewed}'
-    ):
+    )
+    for url, line, parsed, status, edited, inserted in cur:
         n_in += 1
         if (
             not session.query(Tweet)
             .filter(Tweet.url == url, Tweet.parsed == parsed)
-            .exists()
+            .count()
         ):
             tweet = Tweet(
                 url=url,
@@ -167,15 +166,16 @@ def migrate_posted_tweets(session: Session, cur, table_posted: str):
     logger.info('Migrating %s', table_posted)
     n_in = 0
     n_out = 0
-    for (url, line, parsed, status, edited, tweet, inserted) in cur.execute(
+    cur.execute(
         'SELECT url, line, parsed, status, edited, tweet, inserted '
         f'FROM {table_posted}'
-    ):
+    )
+    for url, line, parsed, status, edited, tweet, inserted in cur:
         n_in += 1
         if (
             not session.query(PostedTweet)
             .filter(PostedTweet.text == tweet)
-            .exists()
+            .count()
         ):
             posted_tweet = PostedTweet(
                 url=url,
@@ -196,6 +196,10 @@ def migrate_exported_tweets(session: Session, cur, table_print_export: str):
     logger.info('Migrating %s', table_print_export)
     n_in = 0
     n_out = 0
+    cur.execute(
+        'SELECT url, text, title, description, image_path, domain, timstamp, '
+        f'inserted FROM {table_print_export}'
+    )
     for (
         url,
         text,
@@ -205,15 +209,12 @@ def migrate_exported_tweets(session: Session, cur, table_print_export: str):
         domain,
         timestamp,
         inserted,
-    ) in cur.execute(
-        'SELECT url, text, title, description, image_path, domain, timstamp, '
-        f'inserted FROM {table_print_export}'
-    ):
+    ) in cur:
         n_in += 1
         if (
             not session.query(ExportedTweet)
             .filter(ExportedTweet.text == text)
-            .exists()
+            .count()
         ):
             exported_tweet = ExportedTweet(
                 url=url,
@@ -246,13 +247,13 @@ def main(config: dict):
 
     session = create_session(config['db']['url'])
 
-    migrate_archived_page_urls(session, cur, config['table_archives'])
-    migrate_page_urls(session, cur, config['table_urls'])
-    migrate_pages(session, cur, config['table_pages'])
-    migrate_page_lines(session, cur, config['table_lines'])
-    migrate_parsed_page_lines(session, cur, config['table_parsed'])
-    migrate_tweets(session, cur, config['table_reviewed'])
-    migrate_posted_tweets(session, cur, config['table_posted'])
-    migrate_exported_tweets(session, cur, config['table_print_export'])
+    migrate_page_urls(session, cur, config['db']['table_urls'])
+    migrate_archived_page_urls(session, cur, config['db']['table_archives'])
+    migrate_pages(session, cur, config['db']['table_pages'])
+    migrate_page_lines(session, cur, config['db']['table_lines'])
+    migrate_parsed_page_lines(session, cur, config['db']['table_parsed'])
+    migrate_tweets(session, cur, config['db']['table_reviewed'])
+    migrate_posted_tweets(session, cur, config['db']['table_posted'])
+    migrate_exported_tweets(session, cur, config['db']['table_print_export'])
 
     conn.close()

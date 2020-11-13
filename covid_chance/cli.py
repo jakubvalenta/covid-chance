@@ -166,9 +166,7 @@ def main():
         help='Review approved tweets again',
     )
 
-    post_tweet_parser = subparsers.add_post_tweet_parser(
-        'post-tweet', help='Post tweet'
-    )
+    post_tweet_parser = subparsers.add_parser('post-tweet', help='Post tweet')
     post_tweet_parser.add_argument(
         '-s', '--secrets', help='Secrets file path', required=True
     )

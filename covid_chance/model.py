@@ -198,7 +198,7 @@ class ExportedTweet(Base):  # type: ignore
 
 
 def create_session(url: str) -> Session:
-    engine = create_engine(f'sqlite:///{url}')
+    engine = create_engine(url)
     Base.metadata.create_all(engine)
     session_factory = sessionmaker(bind=engine)
     return scoped_session(session_factory)

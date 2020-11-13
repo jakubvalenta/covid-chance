@@ -59,7 +59,7 @@ def main(config: dict):
                     ArchivedPageURL.feed_url == feed['url'],
                     ArchivedPageURL.date == date,
                 )
-                .exists()
+                .count()
             ):
                 continue
             archived_url = find_closest_snapshot_url(feed['url'], date)

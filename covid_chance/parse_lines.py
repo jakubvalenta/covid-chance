@@ -41,7 +41,7 @@ def parse_page_line(
             ParsedPageLine.line == page_line.line,
             ParsedPageLine.param_hash == param_hash,
         )
-        .exists()
+        .count()
     ):
         return
     logger.info('%d Parsed %s', i, page_line.url)
