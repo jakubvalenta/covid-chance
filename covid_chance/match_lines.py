@@ -36,7 +36,7 @@ def match_page_lines(
 ):
     if (
         session.query(PageLine)
-        .filter(url=page.url, param_hash=param_hash)
+        .filter(PageLine.url == page.url, PageLine.param_hash == param_hash)
         .exists()
     ):
         return

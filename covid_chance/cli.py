@@ -87,6 +87,12 @@ def show_stats(config, args):
     main(config)
 
 
+def migrate(config, args):
+    from covid_chance.migrate import main
+
+    main(config)
+
+
 def main():
     parser = argparse.ArgumentParser(prog=__title__)
     parser.add_argument(
@@ -208,6 +214,9 @@ def main():
         'show-stats', help='Show statistics'
     )
     show_stats_parser.set_defaults(func=show_stats)
+
+    migrate_parser = subparsers.add_parser('migrate', help='Migrate database')
+    migrate_parser.set_defaults(func=migrate)
 
     args = parser.parse_args()
     if args.verbose:

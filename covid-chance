@@ -4,4 +4,4 @@ project_dir=$(dirname "$(readlink -f "$0")")
 
 PIPENV_PIPFILE="$project_dir/Pipfile" \
 PYTHONPATH="$project_dir" \
-pipenv run "$@"
+pipenv run python -m covid_chance.cli "$@"

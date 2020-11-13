@@ -142,12 +142,8 @@ class PostedTweet(Base):  # type: ignore
     parsed = Column(String)
     status = Column(String)
     edited = Column(String)
-    tweet = Column(String, unique=True)
+    text = Column(String, unique=True)
     inserted = Column(DateTime, default=datetime.datetime.now)
-
-    @property
-    def text(self) -> str:
-        return self.tweet
 
     @classmethod
     def from_tweet(cls, tweet: Tweet, text: str) -> 'Tweet':
@@ -157,7 +153,7 @@ class PostedTweet(Base):  # type: ignore
             parsed=tweet.parsed,
             status=tweet.status,
             edited=tweet.edited,
-            tweet=text,
+            text=text,
         )
 
     def __repr__(self) -> str:

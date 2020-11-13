@@ -1,6 +1,6 @@
 {
   "db": {
-    "url": "postgresql://postgres:postgres@/covid_chance_new"
+    "url": "postgresql://postgres:postgres@/covid_chance_2"
   },
   "feeds": [
     {
