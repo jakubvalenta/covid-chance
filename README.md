@@ -3,7 +3,7 @@
 A Twitter account that tweets about all the chances and opportunities Covid-19
 gives us. [twitter.com/covid_chance](https://twitter.com/covid_chance)
 
-![Coronavirus Opportunity Bot](./screenshots/covid-chance.png)
+![Covid-19 is...](./screenshots/covid-chance.png)
 
 This repository contains a general tool to search the web for specific
 expressions and then review and post tweets created from the found text.
@@ -53,49 +53,25 @@ This program works in the following steps:
 5. **Manually review** the created tweets using an interactive command-line interface.
 6. **Post the tweets** to Twitter.
 
-### Database
+### Configuration
 
-This program requires a running PostgreSQL with an existing database. Therefore
-you need to install PostgreSQL and create a database before running the program.
-
-Example for Arch Linux:
-
-``` shell
-# pacman -S postgresql
-$ sudo -iu postgres
-[postgres]$ initdb -D /var/lib/postgres/data
-[postgres]$ createuser --interactive
-[postgres]$ createdb covid_chance
-```
-
-### General configuration
-
-Configuration of all the steps is stored in a single JSON file.
+The configuration of all the steps is stored in a single JSON file.
 
 Start by copying the sample configuration file
-[config.sample.json](./config.sample.json) into any location. Example:
+[config.sample.json](./config.sample.json) to any location. Example:
 
 ``` shell
 $ cp config.sample.json ~/.config/covid-chance/config.json
 ```
 
-Then open the file and configure the PostgreSQL database connection. Example:
+Then open the file and configure the database connection. Example for PostgreSQL
+via a UNIX socket:
 
 ```
 {
   ...
   "db": {
-    "host": "/run/postgresql",
-    "database": "covid_chance",
-    "user": "postgres",
-    "password": "postgres",
-    "table_archives": "archives",
-    "table_lines": "lines",
-    "table_pages": "pages",
-    "table_parsed": "parsed",
-    "table_posted": "posted",
-    "table_reviewed": "reviewed",
-    "table_urls": "urls"
+    "url": "postgresql://scott:tiger@/mydatabase"
   },
   ...
 }
@@ -343,22 +319,7 @@ command-line interface.
 
 #### Configuration
 
-This step doesn't have any required configuration.
-
-Optionally, you can specify the maximum tweet length in characters (doesn't
-include shortened URL) using the property `review_tweets.max_tweet_length`, but
-the default should be accurate. The interactive script will show a warning when
-the text of the tweet exceeds the limit.
-
-```
-{
-  ...
-  "review_tweets": {
-    "max_tweet_length": 247
-  }
-  ...
-}
-```
+This step doesn't have any configuration.
 
 #### Running this step
 

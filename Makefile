@@ -1,5 +1,6 @@
 _python_pkg := covid_chance
-_cmd := covid-chance -v --config "$(config_path)"
+_dir := $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
+_cmd := $(_dir)/covid-chance -v --config "$(config_path)"
 
 cache_path ?= $(HOME)/.cache/covid-chance
 config_path ?= $(HOME)/.config/covid-chance/config.json

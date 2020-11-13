@@ -6,7 +6,7 @@ from covid_chance import __title__
 
 setup(
     name='covid-chance',
-    version='0.1.0',
+    version='0.2.0',
     description=__title__,
     long_description=(Path(__file__).parent / 'README.md').read_text(),
     url='https://www.github.com/jakubvalenta/covid-chance',
@@ -27,11 +27,13 @@ setup(
         'beautifulsoup4>=4.9.0',
         'colored',
         'feedparser',
+        'jinja2',
         'lxml',
         'psycopg2',
         'python-twitter',
         'regex',
         'requests',
+        'sqlalchemy',
     ],
     entry_points={'console_scripts': ['covid-chance=covid_chance.cli:main']},
 )
