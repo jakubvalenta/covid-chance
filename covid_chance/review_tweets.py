@@ -7,7 +7,7 @@ import colored
 from sqlalchemy import inspect
 
 from covid_chance.model import (
-    PageLine, ParsedPageLine, Tweet, TweetReviewStatus, create_session,
+    PageLine, ParsedPageLine, Tweet, TweetReviewStatus, count, create_session,
 )
 
 logger = logging.getLogger(__name__)
@@ -106,9 +106,9 @@ def main(config, review_all: bool, incl_approved: bool):
     total_pending_tweets = len(pending_tweets)
 
     logger.info(
-        'Number of matching lines:   %d', session.query(PageLine).count()
+        'Number of matching lines:   %d', count(session.query(PageLine))
     )
-    logger.info('Number of parsed tweets:    %d', parsed_page_lines.count())
+    logger.info('Number of parsed tweets:    %d', count(parsed_page_lines))
     logger.info('Number of approved tweets:  %d', len(approved_tweets))
     logger.info('Number of rejected tweets:  %d', len(rejected_tweets))
     logger.info('Number of tweets to review: %d', total_pending_tweets)

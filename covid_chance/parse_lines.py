@@ -5,7 +5,7 @@ from typing import Iterator
 import regex
 from sqlalchemy.orm.session import Session
 
-from covid_chance.model import PageLine, ParsedPageLine, create_session
+from covid_chance.model import PageLine, ParsedPageLine, count, create_session
 from covid_chance.utils.hash_utils import hashobj
 
 logger = logging.getLogger(__name__)
@@ -35,13 +35,11 @@ def parse_page_line(
     rx: regex.Regex,
 ):
     param_hash = hashobj(pattern)
-    if (
-        session.query(ParsedPageLine)
-        .filter(
+    if count(
+        session.query(ParsedPageLine).filter(
             ParsedPageLine.line == page_line.line,
             ParsedPageLine.param_hash == param_hash,
         )
-        .count()
     ):
         return
     logger.info('%d Parsed %s', i, page_line.url)

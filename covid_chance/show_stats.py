@@ -5,7 +5,7 @@ import sys
 from sqlalchemy.orm.session import Session
 
 from covid_chance.model import (
-    PageLine, PageURL, ParsedPageLine, Tweet, TweetReviewStatus,
+    PageLine, PageURL, ParsedPageLine, Tweet, TweetReviewStatus, count,
     create_session,
 )
 
@@ -21,28 +21,26 @@ def calc_feed_stats(session: Session, feed_name: str) -> dict:
     ]
     n_pages = len(page_urls)
     if n_pages:
-        n_lines = (
+        n_lines = count(
             session.query(PageLine)
             .filter(PageLine.line != '')
             .filter(PageLine.url.in_(page_urls))
-            .count()
         )
     else:
         n_lines = 0
     if n_lines:
-        n_parsed = (
-            session.query(ParsedPageLine)
-            .filter(ParsedPageLine.url.in_(page_urls))
-            .count()
+        n_parsed = count(
+            session.query(ParsedPageLine).filter(
+                ParsedPageLine.url.in_(page_urls)
+            )
         )
     else:
         n_parsed = 0
     if n_parsed:
-        n_approved = (
+        n_approved = count(
             session.query(Tweet)
             .filter(Tweet.status == TweetReviewStatus.approved)
             .filter(Tweet.url.in_(page_urls))
-            .count()
         )
     else:
         n_approved = 0

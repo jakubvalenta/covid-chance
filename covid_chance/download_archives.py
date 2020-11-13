@@ -5,7 +5,7 @@ from urllib.parse import urlsplit
 
 import requests
 
-from covid_chance.model import ArchivedPageURL, create_session
+from covid_chance.model import ArchivedPageURL, count, create_session
 
 logger = logging.getLogger(__name__)
 
@@ -53,13 +53,11 @@ def main(config: dict):
         if not feed.get('name') or not feed.get('url'):
             continue
         for date in dates:
-            if (
-                session.query(ArchivedPageURL)
-                .filter(
+            if count(
+                session.query(ArchivedPageURL).filter(
                     ArchivedPageURL.feed_url == feed['url'],
                     ArchivedPageURL.date == date,
                 )
-                .count()
             ):
                 continue
             archived_url = find_closest_snapshot_url(feed['url'], date)

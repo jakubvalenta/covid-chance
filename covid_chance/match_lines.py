@@ -4,7 +4,7 @@ from typing import Sequence
 
 from sqlalchemy.orm.session import Session
 
-from covid_chance.model import Page, PageLine, create_session
+from covid_chance.model import Page, PageLine, count, create_session
 from covid_chance.utils.hash_utils import hashobj
 
 logger = logging.getLogger(__name__)
@@ -34,10 +34,10 @@ def match_page_lines(
     keyword_lists: Sequence[Sequence[str]],
     param_hash: str,
 ):
-    if (
-        session.query(PageLine)
-        .filter(PageLine.url == page.url, PageLine.param_hash == param_hash)
-        .count()
+    if count(
+        session.query(PageLine).filter(
+            PageLine.url == page.url, PageLine.param_hash == param_hash
+        )
     ):
         return
     logger.info('%d Matched %s', i, page.url)

@@ -4,7 +4,9 @@ import logging
 from pathlib import Path
 from typing import Any, Dict
 
-from sqlalchemy import Column, DateTime, Enum, Integer, String, create_engine
+from sqlalchemy import (
+    Column, DateTime, Enum, Integer, String, create_engine, func,
+)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.orm.session import Session
@@ -202,3 +204,10 @@ def create_session(url: str) -> Session:
     Base.metadata.create_all(engine)
     session_factory = sessionmaker(bind=engine)
     return scoped_session(session_factory)
+
+
+def count(q):
+    """See https://gist.github.com/hest/8798884"""
+    count_q = q.statement.with_only_columns([func.count()]).order_by(None)
+    count = q.session.execute(count_q).scalar()
+    return count

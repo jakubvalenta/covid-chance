@@ -12,7 +12,8 @@ from PIL import Image
 
 from covid_chance.download_pages import download_page
 from covid_chance.model import (
-    ExportedTweet, PostedTweet, Tweet, TweetReviewStatus, create_session,
+    ExportedTweet, PostedTweet, Tweet, TweetReviewStatus, count,
+    create_session,
 )
 from covid_chance.utils.download_utils import simplify_url
 from covid_chance.utils.file_utils import safe_filename
@@ -164,11 +165,10 @@ def main(config: dict, cache_path: Path, approved: bool = False):
         tweets = session.query(PostedTweet).all()
     for tweet in tweets:
         exported_tweet = print_export_tweet(cache_path, tweet)
-        if (
-            exported_tweet
-            and not session.query(ExportedTweet)
-            .filter(ExportedTweet.text == exported_tweet.text)
-            .count()
+        if exported_tweet and not count(
+            session.query(ExportedTweet).filter(
+                ExportedTweet.text == exported_tweet.text
+            )
         ):
             session.add(exported_tweet)
             session.flush()
