@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 def render_template(
     f: IO,
-    tweets: List[ExportedTweet],
+    tweets: List[dict],
     context: dict,
     package: Optional[Sequence[str]] = None,
     path: Optional[str] = None,
@@ -35,11 +35,11 @@ def render_template(
 
 def main(config: dict, output_dir: Path):
     session = create_session(config['db']['url'])
-
+    context = config['print_export']['context']
     default_tz = dateutil.tz.gettz(config['print_export']['default_tz'])
     if not default_tz:
         raise Exception('Invalid time zone')
-    context = {'default_tz': default_tz, **config['print_export']['context']}
+
     exported_tweets = session.query(ExportedTweet).all()
     tweets_per_page = config['print_export']['tweets_per_page']
 
@@ -52,15 +52,16 @@ def main(config: dict, output_dir: Path):
         tweets = exported_tweets[start:end]
         if not tweets:
             return
+        dict_tweets = [t.to_dict(default_tz) for t in tweets]
         output_filename = output_filename_template.substitute(
-            i=f'{i:03}', **tweets[0].to_dict()
+            i=f'{i:03}', **dict_tweets[0]
         )
         output_path = output_dir / output_filename
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with output_path.open('w') as f:
             render_template(
                 f,
-                tweets=tweets,
+                tweets=dict_tweets,
                 context=context,
                 package=config['print_export'].get('template_package'),
                 path=config['print_export'].get('template_path'),

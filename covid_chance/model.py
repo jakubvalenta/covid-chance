@@ -11,6 +11,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.orm.session import Session
 
+from covid_chance.utils.file_utils import safe_timestamp
 from covid_chance.utils.hash_utils import md5str
 
 logger = logging.getLogger(__name__)
@@ -184,14 +185,17 @@ class ExportedTweet(Base):  # type: ignore
     def text_hash(self) -> str:
         return md5str(self.text)[:7]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self, tz: datetime.tzinfo) -> Dict[str, Any]:
+        local_timestamp = self.timestamp.replace(tzinfo=tz)
         return {
+            'url': self.url,
             'text': self.text,
             'text_hash': self.text_hash,
             'title': self.title,
             'description': self.description,
-            'timestamp': self.timestamp,
-            'image_path': self.image_path,
+            'local_timestamp': local_timestamp,
+            'local_timestamp_safe': safe_timestamp(local_timestamp),
+            'image_path_rel': self.image_path_rel,
             'domain': self.domain,
         }
 

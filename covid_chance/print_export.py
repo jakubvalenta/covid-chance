@@ -146,7 +146,9 @@ def print_export_tweet(
         timestamp = None
     return ExportedTweet(
         url=tweet.url,
-        text=tweet.text,
+        # Use edited or parsed, becase tweet.text the final tweet including
+        # hashtags etc
+        text=tweet.edited or tweet.parsed,
         title=page_meta.title,
         description=page_meta.description,
         image_path=str(image_path),
