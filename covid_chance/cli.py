@@ -50,8 +50,7 @@ def parse_lines(config, args):
 def review_tweets(config, args):
     from covid_chance.review_tweets import main
 
-    cache_path = Path(args.cache)
-    main(config, cache_path, review_all=args.all, incl_approved=args.approved)
+    main(config, review_all=args.all, incl_approved=args.approved)
 
 
 def post_tweet(config, args):
@@ -165,6 +164,7 @@ def main():
         action='store_true',
         help='Review approved tweets again',
     )
+    review_tweets_parser.set_defaults(func=review_tweets)
 
     post_tweet_parser = subparsers.add_parser('post-tweet', help='Post tweet')
     post_tweet_parser.add_argument(

@@ -41,7 +41,7 @@ def print_tweet(
         ),
         end='',
     )
-    print(tweet.status.upper(), end='')
+    print((tweet.status or '').upper(), end='')
     if tweet.invalid:
         print(
             '  ',
@@ -53,7 +53,7 @@ def print_tweet(
         )
     print()
     print()
-    print(tweet.page_url)
+    print(tweet.url)
     print()
     if highlight:
         s = highlight_substr(tweet.line, tweet.parsed)
@@ -94,8 +94,8 @@ def main(config, review_all: bool, incl_approved: bool):
             ParsedPageLine.parsed.notin_(reviewed_tweets_parsed)
         )
     pending_tweets = [
-        Tweet.from_parsed_line(parsed_line)
-        for parsed_line in pending_parsed_page_lines
+        Tweet.from_parsed_page_line(parsed_page_line)
+        for parsed_page_line in pending_parsed_page_lines
     ]
     if not review_all:
         if incl_approved:
@@ -106,7 +106,7 @@ def main(config, review_all: bool, incl_approved: bool):
     total_pending_tweets = len(pending_tweets)
 
     logger.info(
-        'Number of matching lines:   %d', count(session.query(PageLine))
+        'Number of matching lines:   %d', session.query(PageLine).count()
     )
     logger.info('Number of parsed tweets:    %d', count(parsed_page_lines))
     logger.info('Number of approved tweets:  %d', len(approved_tweets))
