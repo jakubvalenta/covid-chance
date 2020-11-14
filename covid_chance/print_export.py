@@ -173,3 +173,4 @@ def main(config: dict, cache_path: Path, approved: bool = False):
             session.add(exported_tweet)
             session.flush()
     session.commit()
+    session.close()

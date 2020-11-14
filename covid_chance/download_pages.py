@@ -178,7 +178,7 @@ def select_page_urls_to_download(
 ) -> Dict[str, Set[str]]:
     query = (
         session.query(PageURL)
-        .join(Page, PageURL.url == Page.url)
+        .outerjoin(Page, PageURL.url == Page.url)
         .filter(Page.url.is_(None))
     )
     if since:
@@ -258,4 +258,5 @@ def main(
         if text is not None:
             page = Page(url=page_url, text=text)
             session.add(page)
+    session.commit()
     session.close()

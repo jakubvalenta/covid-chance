@@ -22,9 +22,9 @@ def calc_feed_stats(session: Session, feed_name: str) -> dict:
     n_pages = len(page_urls)
     if n_pages:
         n_lines = count(
-            session.query(PageLine)
-            .filter(PageLine.line != '')
-            .filter(PageLine.url.in_(page_urls))
+            session.query(PageLine).filter(
+                PageLine.line != '', PageLine.url.in_(page_urls)
+            )
         )
     else:
         n_lines = 0
@@ -38,9 +38,10 @@ def calc_feed_stats(session: Session, feed_name: str) -> dict:
         n_parsed = 0
     if n_parsed:
         n_approved = count(
-            session.query(Tweet)
-            .filter(Tweet.status == TweetReviewStatus.approved)
-            .filter(Tweet.url.in_(page_urls))
+            session.query(Tweet).filter(
+                Tweet.status == TweetReviewStatus.approved,
+                Tweet.url.in_(page_urls),
+            )
         )
     else:
         n_approved = 0
@@ -73,3 +74,4 @@ def main(config: dict):
         if feed['name']:
             feed_stats = calc_feed_stats(session, feed['name'])
             writer.writerow(feed_stats)
+    session.close()

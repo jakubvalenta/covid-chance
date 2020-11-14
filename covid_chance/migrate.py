@@ -359,4 +359,5 @@ def main(config: dict):
     migrate_posted_tweets(session, cur, config['db']['table_posted'])
     migrate_exported_tweets(session, cur, config['db']['table_print_export'])
 
+    session.close()
     conn.close()

@@ -107,3 +107,4 @@ def main(config: dict, secrets: dict, interactive: bool, dry_run: bool):
         description,
     )
     update_profile(name, description, secrets, dry_run)
+    session.close()

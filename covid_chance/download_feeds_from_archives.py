@@ -47,3 +47,4 @@ def main(config: dict, cache_path: str):
                     writer = csv.writer(f, lineterminator='\n')
                     writer.writerows((page_url,) for page_url in page_urls)
             save_page_urls(session, feed['name'], page_urls, date)
+    session.close()

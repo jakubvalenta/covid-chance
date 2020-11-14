@@ -7,7 +7,7 @@ import feedparser
 import requests
 from sqlalchemy.orm.session import Session
 
-from covid_chance.model import PageURL, create_session
+from covid_chance.model import PageURL, count, create_session
 from covid_chance.utils.dict_utils import deep_get
 from covid_chance.utils.download_utils import clean_url
 
@@ -41,7 +41,7 @@ def save_page_urls(
 ):
     counter = 0
     for page_url in set(page_urls):
-        if session.query(PageURL).filter(url=page_url).exists():
+        if count(session.query(PageURL).filter(PageURL.url == page_url)):
             continue
         try:
             page_url = PageURL(
@@ -94,3 +94,4 @@ def main(config: dict):
                 future.result()
             except Exception as e:
                 logger.error('Exception: %s', e)
+    session.close()

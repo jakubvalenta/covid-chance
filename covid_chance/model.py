@@ -199,10 +199,14 @@ class ExportedTweet(Base):  # type: ignore
         return f'ExportedTweet(url={self.url}, text={self.text})'
 
 
-def create_session(url: str) -> Session:
+def create_session_factory(url: str) -> Session:
     engine = create_engine(url)
     Base.metadata.create_all(engine)
-    session_factory = sessionmaker(bind=engine)
+    return sessionmaker(bind=engine)
+
+
+def create_session(*args, **kwargs) -> Session:
+    session_factory = create_session_factory(*args, **kwargs)
     return scoped_session(session_factory)
 
 

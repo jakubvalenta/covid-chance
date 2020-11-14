@@ -68,3 +68,4 @@ def main(config: dict):
             )
             session.add(archived_page_url)
             session.commit()
+    session.close()

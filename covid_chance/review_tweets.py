@@ -164,3 +164,4 @@ def main(config, review_all: bool, incl_approved: bool):
             session.add(tweet)
         session.commit()
         i = i + 1
+    session.close()

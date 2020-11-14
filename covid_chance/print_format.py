@@ -65,3 +65,4 @@ def main(config: dict, output_dir: Path):
                 package=config['print_export'].get('template_package'),
                 path=config['print_export'].get('template_path'),
             )
+    session.close()
