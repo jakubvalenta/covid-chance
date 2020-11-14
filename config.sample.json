@@ -1,6 +1,7 @@
 {
   "db": {
-    "url": "postgresql://postgres:postgres@/covid_chance"
+    "url": "postgresql://postgres:postgres@/covid_chance",
+    "partition_size": 1000
   },
   "feeds": [
     {
