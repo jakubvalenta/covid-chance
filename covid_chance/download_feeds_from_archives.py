@@ -28,6 +28,7 @@ def main(config: dict, cache_path: str):
             logger.info('Found archived feed %s %s', date, archived_url)
             cache_file_path = (
                 Path(cache_path)
+                / 'feeds'
                 / safe_filename(archived_url)
                 / 'feed_pages.csv'
             )

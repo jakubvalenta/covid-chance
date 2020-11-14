@@ -145,6 +145,7 @@ def download_page_text(
 ) -> Optional[str]:
     path = (
         Path(cache_path)
+        / 'pages'
         / safe_filename(simplify_url(page_url))
         / 'page_content.txt'
     )
