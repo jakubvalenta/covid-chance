@@ -152,6 +152,7 @@ def main():
     review_tweets_parser = subparsers.add_parser(
         'review-tweets', help='Review tweets'
     )
+    review_tweets_parser.set_defaults(func=review_tweets)
     review_tweets_parser.add_argument(
         '-a',
         '--all',
@@ -164,9 +165,9 @@ def main():
         action='store_true',
         help='Review approved tweets again',
     )
-    review_tweets_parser.set_defaults(func=review_tweets)
 
     post_tweet_parser = subparsers.add_parser('post-tweet', help='Post tweet')
+    post_tweet_parser.set_defaults(func=post_tweet)
     post_tweet_parser.add_argument(
         '-s', '--secrets', help='Secrets file path', required=True
     )

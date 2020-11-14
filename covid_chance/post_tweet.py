@@ -6,7 +6,7 @@ from typing import Dict
 import twitter
 
 from covid_chance.model import (
-    PostedTweet, Tweet, TweetReviewStatus, create_session,
+    PostedTweet, Tweet, TweetReviewStatus, count, create_session,
 )
 from covid_chance.utils.dict_utils import deep_get
 
@@ -56,7 +56,7 @@ def main(config: dict, secrets: dict, interactive: bool, dry_run: bool):
     pending_tweets = [
         t for t in approved_tweets if t.parsed not in posted_tweets_parsed
     ]
-    total_approved_tweets = len(approved_tweets)
+    total_approved_tweets = count(approved_tweets)
     total_posted_tweets = len(posted_tweets)
     total_pending_tweets = len(pending_tweets)
 
@@ -73,9 +73,7 @@ def main(config: dict, secrets: dict, interactive: bool, dry_run: bool):
     template_str = deep_get(
         config, ['post_tweet', 'tweet_template'], default='${text} ${url}'
     )
-    text = Template(template_str).substitute(
-        text=tweet.text, url=tweet.page_url
-    )
+    text = Template(template_str).substitute(text=tweet.text, url=tweet.url)
 
     logger.warning(
         '%d/%d/%d posting tweet "%s"',
