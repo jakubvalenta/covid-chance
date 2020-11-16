@@ -48,7 +48,12 @@ def parse_page_lines(
             continue
         logger.info('Parsed %s', page_line.url)
         for parsed in parse_line(rx, page_line.line):
-            parsed_page_line = ParsedPageLine.from_page_line(page_line, parsed)
+            parsed_page_line = ParsedPageLine(
+                url=page_line.url,
+                line=page_line.line,
+                parsed=parsed,
+                param_hash=param_hash,
+            )
             session.add(parsed_page_line)
     session.commit()
     session.close()

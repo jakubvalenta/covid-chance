@@ -88,15 +88,6 @@ class ParsedPageLine(Base):  # type: ignore
     param_hash = Column(String, index=True)
     inserted = Column(DateTime, default=datetime.datetime.now)
 
-    @classmethod
-    def from_page_line(cls, line: PageLine, parsed: str) -> 'ParsedPageLine':
-        return cls(
-            url=line.url,
-            line=line.line,
-            parsed=parsed,
-            param_hash=line.param_hash,
-        )
-
     def __repr__(self) -> str:
         return f'ParsedLine(url={self.url}, parsed={self.parsed})'
 
