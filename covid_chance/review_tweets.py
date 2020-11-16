@@ -41,7 +41,8 @@ def print_tweet(
         ),
         end='',
     )
-    print((tweet.status or '').upper(), end='')
+    if tweet.status:
+        print(tweet.status.name.upper(), end='')
     if tweet.invalid:
         print(
             '  ',
