@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from sqlalchemy import (
-    Column, DateTime, Enum, Integer, String, create_engine, func,
+    BigInteger, Column, DateTime, Enum, Integer, String, create_engine, func,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -137,10 +137,11 @@ class PostedTweet(Base):  # type: ignore
     status = Column(Enum(TweetReviewStatus), default=TweetReviewStatus.none)
     edited = Column(String)
     text = Column(String, unique=True)
+    status_id = Column(BigInteger)
     inserted = Column(DateTime, default=datetime.datetime.now)
 
     @classmethod
-    def from_tweet(cls, tweet: Tweet, text: str) -> 'Tweet':
+    def from_tweet(cls, tweet: Tweet, text: str, status_id: int) -> 'Tweet':
         return cls(
             url=tweet.url,
             line=tweet.line,
@@ -148,10 +149,20 @@ class PostedTweet(Base):  # type: ignore
             status=tweet.status,
             edited=tweet.edited,
             text=text,
+            status_id=status_id,
+        )
+
+    @classmethod
+    def from_status(cls, status) -> 'Tweet':
+        return cls(
+            status=TweetReviewStatus.approved,
+            text=status.full_text,
+            status_id=status.id,
+            inserted=status.created_at,
         )
 
     def __repr__(self) -> str:
-        return f'PostedTweet(url={self.url}, tweet={self.tweet})'
+        return f'PostedTweet(url={self.url}, text={self.text})'
 
 
 class ExportedTweet(Base):  # type: ignore

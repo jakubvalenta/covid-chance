@@ -51,6 +51,10 @@ post-tweet:  ## Post one random reviewed tweet
 post-tweet-interactive:  ## Post one random reviewed tweet (ask before posting)
 	$(_cmd) post-tweet --secrets "$(secrets_path)" --interactive
 
+.PHONY: check-posted-tweets
+check-posted-tweets:  ## Check posted tweets
+	$(_cmd) check-posted-tweets --secrets "$(secrets_path)"
+
 .PHONY: show-stats
 show-stats:  ## Show statistics
 	$(_cmd) show-stats

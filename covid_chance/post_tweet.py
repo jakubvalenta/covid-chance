@@ -1,7 +1,7 @@
 import logging
 import random
 from string import Template
-from typing import Dict
+from typing import Dict, Optional
 
 import twitter
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def update_profile(
     name: str, description: str, secrets: Dict[str, str], dry_run: bool = True
-):
+) -> bool:
     if dry_run:
         logger.warning('This is just a dry run, not calling Twitter API')
         return False
@@ -27,12 +27,15 @@ def update_profile(
     )
     user = api.UpdateProfile(name=name, description=description)
     logger.warning('Updated profile of user %s', user.name)
+    return True
 
 
-def post_tweet(text: str, secrets: Dict[str, str], dry_run: bool = True):
+def post_tweet(
+    text: str, secrets: Dict[str, str], dry_run: bool = True
+) -> Optional[int]:
     if dry_run:
         logger.warning('This is just a dry run, not calling Twitter API')
-        return False
+        return None
     api = twitter.Api(
         consumer_key=secrets['consumer_key'],
         consumer_secret=secrets['consumer_secret'],
@@ -41,9 +44,12 @@ def post_tweet(text: str, secrets: Dict[str, str], dry_run: bool = True):
     )
     status = api.PostUpdate(status=text)
     logger.warning(
-        'Posted tweet "%s" as user %s', status.text, status.user.name
+        'Posted tweet %d "%s" as user %s',
+        status.id,
+        status.text,
+        status.user.name,
     )
-    return True
+    return status.id
 
 
 def main(config: dict, secrets: dict, interactive: bool, dry_run: bool):
@@ -87,9 +93,11 @@ def main(config: dict, secrets: dict, interactive: bool, dry_run: bool):
         if inp != 'y':
             print('Bailing out!')
             return
-    post_tweet(text, secrets, dry_run)
+    status_id = post_tweet(text, secrets, dry_run)
+    if not status_id:
+        return
 
-    posted_tweet = PostedTweet.from_tweet(tweet, text)
+    posted_tweet = PostedTweet.from_tweet(tweet, text, status_id)
     session.add(posted_tweet)
     session.commit()
 

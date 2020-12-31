@@ -66,6 +66,18 @@ def post_tweet(config, args):
     )
 
 
+def check_posted_tweets(config, args):
+    from covid_chance.check_posted_tweets import main
+
+    with open(args.secrets, 'r') as f:
+        secrets = json.load(f)
+    main(
+        config,
+        secrets,
+        dry_run=args.dry_run,
+    )
+
+
 def print_export(config, args):
     from covid_chance.print_export import main
 
@@ -178,6 +190,17 @@ def main():
         help='Ask before posting the tweet',
     )
     post_tweet_parser.add_argument(
+        '--dry-run', action='store_true', help='Dry run'
+    )
+
+    check_posted_tweets_parser = subparsers.add_parser(
+        'check-posted-tweets', help='Check posted tweet'
+    )
+    check_posted_tweets_parser.set_defaults(func=check_posted_tweets)
+    check_posted_tweets_parser.add_argument(
+        '-s', '--secrets', help='Secrets file path', required=True
+    )
+    check_posted_tweets_parser.add_argument(
         '--dry-run', action='store_true', help='Dry run'
     )
 
