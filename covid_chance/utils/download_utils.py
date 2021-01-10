@@ -31,6 +31,8 @@ def clean_url(
 
 
 def simplify_url(url: str) -> str:
+    if not url:
+        return ''
     u = urllib.parse.urlsplit(url)
     netloc = re.sub('^.+@', '', u.netloc)
     return urllib.parse.urlunsplit(('', netloc, u.path, u.query, ''))
