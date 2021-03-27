@@ -65,7 +65,7 @@ def download_page(
 
 def get_element_text(
     soup: BeautifulSoup,
-    ignore_tags: Sequence[str] = ('style', 'script'),
+    ignore_tags: Sequence[str] = ('head', 'meta', 'script', 'style', 'title'),
     ignore_classes: Sequence[Type] = (
         CData,
         Comment,
@@ -119,7 +119,12 @@ def get_element_text(
             if soup.name in block_elements:
                 yield '\n'
             for child in soup.children:
-                yield from get_element_text(child, ignore_tags=ignore_tags)
+                yield from get_element_text(
+                    child,
+                    ignore_tags=ignore_tags,
+                    ignore_classes=ignore_classes,
+                    block_elements=block_elements,
+                )
 
 
 def clean_whitespace(s: str) -> str:
