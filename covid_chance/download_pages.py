@@ -118,13 +118,14 @@ def get_element_text(
         else:
             if soup.name in block_elements:
                 yield '\n'
-            for child in soup.children:
-                yield from get_element_text(
-                    child,
-                    ignore_tags=ignore_tags,
-                    ignore_classes=ignore_classes,
-                    block_elements=block_elements,
-                )
+            if hasattr(soup, 'children'):
+                for child in soup.children:
+                    yield from get_element_text(
+                        child,
+                        ignore_tags=ignore_tags,
+                        ignore_classes=ignore_classes,
+                        block_elements=block_elements,
+                    )
 
 
 def clean_whitespace(s: str) -> str:
