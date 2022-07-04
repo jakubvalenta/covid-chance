@@ -35,12 +35,15 @@ def match_pages(
     param_hash: str,
 ):
     session = scoped_session(session_factory)
+    page_urls = [page.url for (page,) in pages]
+    matched_urls = [
+        r[0]
+        for r in session.query(PageLine.url)
+        .filter(PageLine.url.in_(page_urls), PageLine.param_hash == param_hash)
+        .group_by(PageLine.url)
+    ]
     for (page,) in pages:
-        if count(
-            session.query(PageLine).filter(
-                PageLine.url == page.url, PageLine.param_hash == param_hash
-            )
-        ):
+        if page.url in matched_urls:
             continue
         logger.info('Matched %s', page.url)
         inserted = False

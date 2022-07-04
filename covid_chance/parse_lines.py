@@ -38,13 +38,18 @@ def parse_page_lines(
 ):
     rx = regex.compile(pattern)
     session = scoped_session(session_factory)
+    page_urls = [page_line.url for (page_line,) in page_lines]
+    parsed_urls = [
+        r[0]
+        for r in session.query(ParsedPageLine.url)
+        .filter(
+            ParsedPageLine.url.in_(page_urls),
+            ParsedPageLine.param_hash == param_hash,
+        )
+        .group_by(ParsedPageLine.url)
+    ]
     for (page_line,) in page_lines:
-        if count(
-            session.query(ParsedPageLine).filter(
-                ParsedPageLine.line == page_line.line,
-                ParsedPageLine.param_hash == param_hash,
-            )
-        ):
+        if page_line.url in parsed_urls:
             continue
         logger.info('Parsed %s', page_line.url)
         for parsed in parse_line(rx, page_line.line):
@@ -70,7 +75,7 @@ def main(config: dict):
     stmt = (
         select(PageLine)
         .filter(PageLine.line != '')
-        .execution_options(yield_per=1000)
+        .execution_options(yield_per=partition_size)
     )
     page_lines = session.execute(stmt).partitions(partition_size)
 
